@@ -21,21 +21,31 @@ router.get('/counts', async (req, res) => {
             });
         }
 
+        // ❌ 대시보드 집계에서 제외할 카테고리(자문이 아닌 요청들)
+        const EXCLUDED_CATEGORIES = [
+            'extra_usage_quote', // 추가 이용/견적 요청
+            'payment_request',
+            'plan_change',
+            'payment_method',
+            'member_req',
+            'phone_log'
+        ];
+
         let sql = `
             SELECT
               SUM(status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress')) AS pendingCount,
               SUM(status IN ('completed', 'done', 'answered', 'resolved', 'Completed')) AS doneCount,
               COUNT(*) AS totalCount
             FROM posts
+            WHERE category NOT IN (${EXCLUDED_CATEGORIES.map(() => '?').join(', ')})
         `;
-        const params = [];
+        const params = [...EXCLUDED_CATEGORIES];
 
         if (!isAdmin) {
-            sql += ' WHERE companyName = ?';
+            sql += ' AND companyName = ?';
             params.push(companyName);
         }
-
-        const [row] = await query(sql, params);
+const [row] = await query(sql, params);
         res.json({
             pendingCount: Number(row?.pendingCount ?? 0),
             doneCount: Number(row?.doneCount ?? 0),
