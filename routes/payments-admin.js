@@ -1,19 +1,10 @@
 import express from 'express';
 import { query } from '../config/database.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 router.use(authenticateToken);
-
-// 관리자 권한 체크 미들웨어
-const requireAdmin = (req, res, next) => {
-    const adminRoles = ['master', 'admin', 'general_manager', 'lawyer'];
-    if (!adminRoles.includes(req.user.role)) {
-        return res.status(403).json({ message: '관리자 권한이 필요합니다.' });
-    }
-    next();
-};
 
 // ===========================
 // 1. 매출 장부 API
