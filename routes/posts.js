@@ -322,7 +322,7 @@ router.post('/', async (req, res) => {
 
         // ✅ 사용량 차감 처리
         // 제외 카테고리: phone_log(전화상담 기록), payment_request, plan_change, payment_method, member_req
-        const excludeCategories = ['phone_log', 'payment_request', 'plan_change', 'payment_method', 'member_req'];
+        const excludeCategories = ['phone_log', 'payment_request', 'plan_change', 'payment_method', 'member_req', 'extra_usage_quote'];
         const shouldIncrementQa = !excludeCategories.includes(category) && category !== 'phone_request';
         const shouldIncrementPhone = category === 'phone_request';
 
