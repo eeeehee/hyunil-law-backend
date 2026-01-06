@@ -178,7 +178,7 @@ router.post('/', authenticateToken, async (req, res) => {
         res.status(201).json({
             success: true,
             message: '승인 요청이 생성되었습니다.',
-            requestId: result.insertId
+            requestId: Number(result.insertId) // BigInt를 Number로 변환
         });
     } catch (error) {
         console.error('❌ 승인 요청 생성 에러:', error);
