@@ -139,15 +139,28 @@ router.get('/:id', authenticateToken, async (req, res) => {
  */
 router.post('/', authenticateToken, async (req, res) => {
     try {
+        console.log('🔔 승인 요청 생성 시작');
+        console.log('📥 Request body:', req.body);
+        console.log('👤 User info:', { uid: req.user?.uid, bizNum: req.user?.bizNum, role: req.user?.role });
+
         const { requestType, requestData } = req.body;
         const user = req.user;
 
         if (!requestType || !requestData) {
+            console.log('❌ 필수 필드 누락:', { requestType, requestData });
             return res.status(400).json({
                 error: 'Bad request',
                 message: '요청 유형과 상세 정보는 필수입니다.'
             });
         }
+
+        console.log('✅ 필드 검증 통과');
+        console.log('💾 DB에 저장 시도:', {
+            uid: user.uid,
+            bizNum: user.bizNum,
+            requestType,
+            requestData
+        });
 
         // 승인 요청 생성
         const result = await query(`
@@ -160,16 +173,22 @@ router.post('/', authenticateToken, async (req, res) => {
             JSON.stringify(requestData)
         ]);
 
+        console.log('✨ 승인 요청 생성 완료:', result.insertId);
+
         res.status(201).json({
             success: true,
             message: '승인 요청이 생성되었습니다.',
             requestId: result.insertId
         });
     } catch (error) {
-        console.error('승인 요청 생성 에러:', error);
+        console.error('❌ 승인 요청 생성 에러:', error);
+        console.error('에러 스택:', error.stack);
+        console.error('에러 코드:', error.code);
+        console.error('에러 메시지:', error.message);
         res.status(500).json({
             error: 'Internal server error',
-            message: '승인 요청 생성 중 오류가 발생했습니다.'
+            message: '승인 요청 생성 중 오류가 발생했습니다.',
+            detail: error.message
         });
     }
 });
