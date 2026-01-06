@@ -28,6 +28,8 @@ router.get('/counts', async (req, res) => {
             'plan_change',
             'payment_method',
             'member_req',
+            'member_req_internal', // 부서변경 요청 (CEO 승인)
+            'member_req_admin', // 회원 정보 변경 요청 (관리자 승인)
             'phone_log'
         ];
 
