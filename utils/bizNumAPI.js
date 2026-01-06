@@ -68,9 +68,10 @@ export async function validateBizNumWithAPI(bizNum) {
         // ]
         // }
         if (data && data.data && data.data.length > 0) {
-            const status = data.data[0].b_stt_cd; // 사업자등록상태코드
-            // b_stt_cd가 01이면 계속사업자
-            return status === '01'; // '계속사업자' 코드
+            // 응답 형식에 따라 status 객체 내의 b_stt_cd를 사용
+            const statusCode = data.data[0]?.status?.b_stt_cd; // 사업자등록상태코드
+            // b_stt_cd가 '01'이면 '계속사업자'를 의미합니다.
+            return statusCode === '01';
         }
 
         return false; // API 응답 형식이 예상과 다름
