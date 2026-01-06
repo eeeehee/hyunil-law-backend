@@ -1,8 +1,47 @@
 // backend/middleware/auth.js
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { validateBizNumWithAPI } from '../utils/bizNumAPI.js'; // 새로 추가된 외부 API 헬퍼 임포트
 
 dotenv.config();
+
+/**
+ * 외부 API를 사용하여 사업자등록번호 유효성을 검사하는 미들웨어
+ * 이 미들웨어는 `bizNum`을 요청 본문에서 찾아 외부 API로 검증합니다.
+ * 검증에 실패하면 400 Bad Request 응답을 보냅니다.
+ *
+ * @param {object} req - Express 요청 객체
+ * @param {object} res - Express 응답 객체
+ * @param {function} next - 다음 미들웨어 함수
+ */
+export async function verifyBizNumExternally(req, res, next) {
+    const { bizNum } = req.body;
+
+    if (!bizNum) {
+        return res.status(400).json({
+            error: 'MissingBizNum',
+            message: '사업자등록번호가 필요합니다.'
+        });
+    }
+
+    try {
+        const isValid = await validateBizNumWithAPI(bizNum);
+        if (!isValid) {
+            return res.status(400).json({
+                error: 'InvalidBizNum',
+                message: '유효하지 않거나 폐업된 사업자등록번호입니다.'
+            });
+        }
+        console.log(`✅ [외부 API 검증] 사업자등록번호 유효: ${bizNum}`);
+        next();
+    } catch (error) {
+        console.error('❌ 사업자등록번호 외부 검증 중 오류 발생:', error);
+        res.status(500).json({
+            error: 'BizNumVerificationFailed',
+            message: '사업자등록번호 검증에 실패했습니다.'
+        });
+    }
+}
 
 // JWT 토큰 생성
 export function generateToken(user) {
