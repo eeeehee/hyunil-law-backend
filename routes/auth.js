@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database.js';
 import { generateToken } from '../middleware/auth.js';
+import { validateBizNumWithAPI } from '../utils/bizNumAPI.js'; // 외부 API 헬퍼 임포트
 
 const router = express.Router();
 
@@ -118,6 +119,29 @@ router.post('/signup', async (req, res) => {
         message: '이미 사용 중인 이메일입니다.'
       });
     }
+
+    // 이메일 중복 확인
+    const existingUser = await query(
+      'SELECT uid FROM users WHERE email = ?',
+      [email]
+    );
+    if (existingUser.length > 0) {
+      return res.status(409).json({
+        error: 'Email already exists',
+        message: '이미 사용 중인 이메일입니다.'
+      });
+    }
+
+    // ✅ 외부 API를 통한 사업자등록번호 유효성 검사
+    const isBizNumValid = await validateBizNumWithAPI(bizNum);
+    if (!isBizNumValid) {
+        console.warn(`❌ [회원가입] 유효하지 않은 사업자등록번호: ${bizNum}`);
+        return res.status(400).json({
+            error: 'InvalidBizNum',
+            message: '유효하지 않거나 폐업된 사업자등록번호입니다. 정확한 정보를 입력해주세요.'
+        });
+    }
+    console.log(`✅ [회원가입] 사업자등록번호 외부 API 검증 완료: ${bizNum}`);
 
     // 사업자번호 중복 확인
     const existingBizNum = await query(
