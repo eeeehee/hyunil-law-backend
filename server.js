@@ -22,6 +22,7 @@ import adminRoutes from './routes/admin.js';
 import bizSodaRoutes from './routes/biz-soda.js';
 import billingRoutes from './routes/billing.js';
 import uploadRoutes from './routes/upload.js';
+import approvalRequestsRoutes from './routes/approval-requests.js';
 
 // Always load .env from this backend directory regardless of where Node is started from
 const __filename = fileURLToPath(import.meta.url);
@@ -73,6 +74,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/biz-soda', bizSodaRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/approval-requests', approvalRequestsRoutes);
 
 // 404 handler
 app.use((req, res) => {
