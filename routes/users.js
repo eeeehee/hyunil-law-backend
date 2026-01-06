@@ -28,30 +28,32 @@ router.get('/me', authenticateToken, async (req, res) => {
             });
         }
 
-        // ✅ 멀티테넌트: 직원(manager, user, staff)은 owner의 플랜과 사용량 정보를 사용
-        let planInfo = {
+        // ✅ 멀티테넌트: 직원(manager, user, staff)은 owner의 플랜과 사용량, 승인설정 정보를 사용
+        let companySettings = {
             plan: user.plan,
             qaUsedCount: user.qa_used_count,
             phoneUsedCount: user.phone_used_count,
             customQaLimit: user.custom_qa_limit,
-            customPhoneLimit: user.custom_phone_limit
+            customPhoneLimit: user.custom_phone_limit,
+            useApproval: user.useApproval
         };
 
         if (['manager', 'user', 'staff'].includes(user.role) && user.biz_num) {
             const [owner] = await query(
-                'SELECT plan, qa_used_count, phone_used_count, custom_qa_limit, custom_phone_limit FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1',
+                'SELECT plan, qa_used_count, phone_used_count, custom_qa_limit, custom_phone_limit, useApproval FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1',
                 [user.biz_num]
             );
 
             if (owner) {
-                planInfo = {
+                companySettings = {
                     plan: owner.plan,
                     qaUsedCount: owner.qa_used_count,
                     phoneUsedCount: owner.phone_used_count,
                     customQaLimit: owner.custom_qa_limit,
-                    customPhoneLimit: owner.custom_phone_limit
+                    customPhoneLimit: owner.custom_phone_limit,
+                    useApproval: owner.useApproval
                 };
-                console.log(`👥 직원(${user.uid})에게 owner 플랜 정보 제공: plan=${owner.plan}, qaUsed=${owner.qa_used_count}`);
+                console.log(`👥 직원(${user.uid})에게 owner 플랜/설정 정보 제공: plan=${owner.plan}, useApproval=${owner.useApproval}`);
             }
         }
 
@@ -67,11 +69,12 @@ router.get('/me', authenticateToken, async (req, res) => {
             department: user.department,
             departments: parseDepartments(user.departments),
             role: user.role,
-            plan: planInfo.plan,
-            qaUsedCount: planInfo.qaUsedCount,
-            phoneUsedCount: planInfo.phoneUsedCount,
-            customQaLimit: planInfo.customQaLimit,
-            customPhoneLimit: planInfo.customPhoneLimit,
+            plan: companySettings.plan,
+            qaUsedCount: companySettings.qaUsedCount,
+            phoneUsedCount: companySettings.phoneUsedCount,
+            customQaLimit: companySettings.customQaLimit,
+            customPhoneLimit: companySettings.customPhoneLimit,
+            useApproval: companySettings.useApproval,
             createdAt: user.created_at,
             agreedAt: user.agreed_at
         });
@@ -226,7 +229,8 @@ router.put('/me', authenticateToken, async (req, res) => {
             managerName,
             phone,
             department,
-            departments
+            departments,
+            useApproval 
         } = req.body;
 
         const updates = [];
@@ -261,6 +265,11 @@ router.put('/me', authenticateToken, async (req, res) => {
             console.log('departments 필드 업데이트:', departments, '→', deptValue);
             updates.push('departments = ?');
             params.push(deptValue);
+        }
+        // "승인결재 사용" 여부 업데이트 (owner, admin만 가능)
+        if (useApproval !== undefined && ['owner', 'admin'].includes(req.user.role)) {
+            updates.push('useApproval = ?');
+            params.push(useApproval ? 1 : 0);
         }
 
         if (updates.length === 0) {

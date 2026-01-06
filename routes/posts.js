@@ -223,186 +223,23 @@ router.get('/:docId', async (req, res) => {
     }
 });
 
+import { createPost } from '../utils/post_service.js';
+
+// ... (keep the rest of the file as is until the POST / endpoint)
+
 // 게시글 생성
 router.post('/', async (req, res) => {
     try {
-        // ✅ 기본 필드
-        const { category, title, content, fileUrls } = req.body;
-
-        // ✅ (관리자 전용) 특정 사업자 카드에 귀속시키기 위한 옵션 필드
-        // - 프론트에서 넘길 수 있는 키들을 최대한 폭넓게 수용
-        const targetAuthorUid =
-            req.body.authorUid ||
-            req.body.targetOwnerUid ||
-            req.body.ownerUid ||
-            req.body.companyUid ||
-            req.body.company_uid ||
-            null;
-
-        const targetCompanyName =
-            req.body.companyName ||
-            req.body.targetCompanyName ||
-            null;
-
-        const targetBizNum =
-            req.body.bizNum ||
-            req.body.authorBizNum ||
-            req.body.companyBizNum ||
-            req.body.company_biz_num ||
-            req.body.targetBizNum ||
-            req.body.targetCompanyBizNum ||
-            req.body.target_company_biz_num ||
-            null;
-
-        if (!category || !title || !content) {
-            return res.status(400).json({ message: '필수 항목을 입력해주세요.' });
-        }
-
-        const docId = uuidv4();
-        const now = new Date();
-
-        // fileUrls를 JSON 문자열로 변환
-        const fileUrlsJson = fileUrls ? JSON.stringify(fileUrls) : null;
-
-        // ✅ 기본값: 로그인 유저 기준으로 저장(기존 동작 유지)
-        let authorUidToSave = req.user.uid;
-        let companyNameToSave = req.user.companyName;
-
-        // ✅ 관리자면 phone_log에 한해 "선택한 사업자 카드"로 귀속 저장 허용
-        const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
-
-        if (isAdmin && category === 'phone_log') {
-            // 1) biz_num이 들어오면 users에서 해당 사업자(uid/company_name) 조회해서 강제 세팅
-            if (targetBizNum) {
-                const [targetUser] = await query(
-                    'SELECT uid, company_name FROM users WHERE biz_num = ? LIMIT 1',
-                    [targetBizNum]
-                );
-                if (!targetUser) {
-                    return res.status(400).json({
-                        message: '대상 사업자(biz_num)를 users에서 찾을 수 없습니다.',
-                        targetBizNum
-                    });
-                }
-                authorUidToSave = targetUser.uid;
-                companyNameToSave = targetUser.company_name;
-            } else {
-                // 2) biz_num이 없으면 authorUid/companyName을 직접 받되, authorUid는 실제 users에 존재해야 함
-                if (targetAuthorUid) {
-                    const [targetUser] = await query(
-                        'SELECT uid, company_name FROM users WHERE uid = ? LIMIT 1',
-                        [targetAuthorUid]
-                    );
-                    if (!targetUser) {
-                        return res.status(400).json({
-                            message: '대상 authorUid를 users에서 찾을 수 없습니다.',
-                            targetAuthorUid
-                        });
-                    }
-                    authorUidToSave = targetUser.uid;
-                    companyNameToSave = targetCompanyName || targetUser.company_name;
-                } else if (targetCompanyName) {
-                    // 3) companyName만 온 경우(권장 X) - 동일 회사명의 첫 user에 귀속
-                    const [targetUser] = await query(
-                        'SELECT uid, company_name FROM users WHERE company_name = ? LIMIT 1',
-                        [targetCompanyName]
-                    );
-                    if (!targetUser) {
-                        return res.status(400).json({
-                            message: '대상 companyName을 users에서 찾을 수 없습니다.',
-                            targetCompanyName
-                        });
-                    }
-                    authorUidToSave = targetUser.uid;
-                    companyNameToSave = targetUser.company_name;
-                }
-            }
-        }
-
-        // ✅ phone_log는 바로 완료(done)로 저장하고, 기록자(로그인 사용자) 이름을 남긴다
-        let statusToSave = 'pending';
-        let answeredByToSave = null;
-        let answeredAtToSave = null;
-
-        if (category === 'phone_log') {
-            statusToSave = 'done';
-            // users 테이블에서 로그인 사용자의 manager_name을 가져와 기록자 이름으로 저장
-            const [writerUser] = await query('SELECT manager_name FROM users WHERE uid = ? LIMIT 1', [req.user.uid]);
-            answeredByToSave = writerUser?.manager_name || req.user.email || '관리자';
-            answeredAtToSave = now;
-        }
-
-        // ✅ 사용량 차감 처리
-        // 제외 카테고리: phone_log(전화상담 기록), payment_request, plan_change, payment_method, member_req
-        const excludeCategories = ['phone_log', 'payment_request', 'plan_change', 'payment_method', 'member_req', 'extra_usage_quote'];
-        const shouldIncrementQa = !excludeCategories.includes(category) && category !== 'phone_request';
-        const shouldIncrementPhone = category === 'phone_request';
-
-        if (shouldIncrementQa || shouldIncrementPhone) {
-            // ✅ 멀티테넌트: 직원이 자문 신청하면 owner의 사용량 차감
-            // 작성자 정보 조회
-            const [authorInfo] = await query(
-                'SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1',
-                [authorUidToSave]
-            );
-
-            let targetUidForUsage = authorUidToSave;
-
-            // 직원(manager, user, staff)이면 같은 biz_num의 owner 찾기
-            if (authorInfo && ['manager', 'user', 'staff'].includes(authorInfo.role)) {
-                const [ownerInfo] = await query(
-                    'SELECT uid FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1',
-                    [authorInfo.biz_num]
-                );
-                if (ownerInfo) {
-                    targetUidForUsage = ownerInfo.uid;
-                    console.log(`👥 직원(${authorUidToSave})의 자문 → owner(${targetUidForUsage})의 사용량 차감`);
-                }
-            }
-
-            // 서면 자문 또는 전화 상담 사용량 증가
-            if (shouldIncrementQa) {
-                await query(
-                    `UPDATE users SET qa_used_count = qa_used_count + 1 WHERE uid = ?`,
-                    [targetUidForUsage]
-                );
-                console.log(`✅ 자문 신청으로 qa_used_count 증가: uid=${targetUidForUsage}, category=${category}`);
-            } else if (shouldIncrementPhone) {
-                await query(
-                    `UPDATE users SET phone_used_count = phone_used_count + 1 WHERE uid = ?`,
-                    [targetUidForUsage]
-                );
-                console.log(`✅ 전화상담 신청으로 phone_used_count 증가: uid=${targetUidForUsage}, category=${category}`);
-            }
-        }
-
-        await query(
-            `INSERT INTO posts (docId, category, title, content, fileUrls, authorUid, companyName, status, answeredBy, answeredAt, createdAt, updatedAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                docId,
-                category,
-                title,
-                content,
-                fileUrlsJson,
-                authorUidToSave,
-                companyNameToSave,
-                statusToSave,
-                answeredByToSave,
-                answeredAtToSave,
-                now,
-                now
-            ]
-        );
-
-        const [newPost] = await query('SELECT * FROM posts WHERE docId = ?', [docId]);
+        const newPost = await createPost(req.body, req.user);
         res.status(201).json(newPost);
-
     } catch (error) {
         console.error('게시글 생성 에러:', error);
-        res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+        res.status(500).json({ message: error.message || '서버 오류가 발생했습니다.' });
     }
 });
+
+// ... (the rest of the file)
+
 
 // 게시글 수정
 router.put('/:docId', async (req, res) => {
