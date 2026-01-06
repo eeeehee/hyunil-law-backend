@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.dev' });
 
 const BIZ_NUM_API_KEY = process.env.BIZ_NUM_API_KEY;
-const BIZ_NUM_API_URL = 'https://api.odcloud.kr/api/nts-businessman/v1/status'; // 국세청 사업자상태조회 API 예시
+const BIZ_NUM_API_URL = 'https://api.odcloud.kr/api/nts-businessman/v1/validate'; // 국세청 사업자상태조회 API 예시
 
 /**
  * 외부 API를 통해 사업자등록번호 유효성을 검사합니다.
