@@ -25,3 +25,6 @@ uploads/
 *.tmp
 *.temp
 .aider*
+
+# Documentation
+conventions.md
