@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: '.env.dev' });
 
 const BIZ_NUM_API_KEY = process.env.BIZ_NUM_API_KEY;
 const BIZ_NUM_API_URL = 'https://api.odcloud.kr/api/nts-businessman/v1/status'; // 국세청 사업자상태조회 API 예시

@@ -1,4 +1,5 @@
-import 'dotenv/config'; // .env 파일에서 환경 변수를 로드합니다.
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.dev' }); // .env.dev 파일에서 환경 변수를 로드합니다.
 import { validateBizNumWithAPI } from './utils/bizNumAPI.js';
 
 async function testBizNumAPI() {
