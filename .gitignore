@@ -24,3 +24,4 @@ uploads/
 # Temporary files
 *.tmp
 *.temp
+.aider*
