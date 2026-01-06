@@ -16,16 +16,20 @@ const router = express.Router();
  */
 router.get('/', authenticateToken, async (req, res) => {
     try {
+        console.log('🔍 승인 요청 목록 조회 시작');
+        console.log('📥 Query params:', req.query);
+        console.log('👤 User:', { uid: req.user?.uid, role: req.user?.role, bizNum: req.user?.bizNum });
+
         const { status, bizNum } = req.query;
         const user = req.user;
 
         let sql = `
             SELECT
                 ar.*,
-                u.managerName as requesterName,
+                u.manager_name as requesterName,
                 u.email as requesterEmail,
-                u.department as requesterDepartment,
-                approver.managerName as approverName
+                COALESCE(u.department, '') as requesterDepartment,
+                approver.manager_name as approverName
             FROM approval_requests ar
             LEFT JOIN users u ON ar.uid = u.uid
             LEFT JOIN users approver ON ar.approvedBy = approver.uid
@@ -59,7 +63,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
         sql += ' ORDER BY ar.createdAt DESC';
 
+        console.log('📝 실행할 SQL:', sql);
+        console.log('📌 SQL params:', params);
+
         const requests = await query(sql, params);
+
+        console.log('✅ 조회된 요청 수:', requests.length);
 
         // requestData JSON 파싱
         const parsedRequests = requests.map(req => ({
@@ -75,10 +84,16 @@ router.get('/', authenticateToken, async (req, res) => {
             count: parsedRequests.length
         });
     } catch (error) {
-        console.error('승인 요청 목록 조회 에러:', error);
+        console.error('❌ 승인 요청 목록 조회 에러:', error);
+        console.error('에러 코드:', error.code);
+        console.error('에러 번호:', error.errno);
+        console.error('SQL State:', error.sqlState);
+        console.error('SQL 메시지:', error.sqlMessage);
+        console.error('SQL:', error.sql);
         res.status(500).json({
             error: 'Internal server error',
-            message: '승인 요청 목록을 불러오는 중 오류가 발생했습니다.'
+            message: '승인 요청 목록을 불러오는 중 오류가 발생했습니다.',
+            detail: error.sqlMessage || error.message
         });
     }
 });
@@ -95,10 +110,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
         const [request] = await query(`
             SELECT
                 ar.*,
-                u.managerName as requesterName,
+                u.manager_name as requesterName,
                 u.email as requesterEmail,
-                u.department as requesterDepartment,
-                approver.managerName as approverName
+                COALESCE(u.department, '') as requesterDepartment,
+                approver.manager_name as approverName
             FROM approval_requests ar
             LEFT JOIN users u ON ar.uid = u.uid
             LEFT JOIN users approver ON ar.approvedBy = approver.uid
