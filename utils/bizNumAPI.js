@@ -47,6 +47,26 @@ export async function validateBizNumWithAPI(bizNum) {
         // data.data 배열에 각 사업자등록번호에 대한 결과가 담깁니다.
         // '사업자등록상태' 필드가 '계속사업자' 또는 '휴업자', '폐업자' 등을 반환합니다.
         // 여기서는 '계속사업자'만 유효하다고 간주합니다. (요구사항에 따라 변경 가능)
+        // {
+        //     "status_code": "OK",
+        //     "match_cnt": 1,
+        //     "request_cnt": 1,
+        //     "data": [
+        //     {
+        //         "b_no": "0000000000",
+        //         "b_stt": "계속사업자",
+        //         "b_stt_cd": "01",
+        //         "tax_type": "부가가치세 일반과세자",
+        //         "tax_type_cd": "01",
+        //         "end_dt": "20000101",
+        //         "utcc_yn": "Y",
+        //         "tax_type_change_dt": "20000101",
+        //         "invoice_apply_dt": "20000101",
+        //         "rbf_tax_type": "부가가치세 일반과세자",
+        //         "rbf_tax_type_cd": "01"
+        //     }
+        // ]
+        // }
         if (data && data.data && data.data.length > 0) {
             const status = data.data[0].b_stt_cd; // 사업자등록상태코드
             // b_stt_cd가 01이면 계속사업자
