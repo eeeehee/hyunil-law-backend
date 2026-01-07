@@ -5,7 +5,7 @@ const BIZ_NUM_API_KEY = process.env.BIZ_NUM_API_KEY;
 const BIZ_NUM_API_URL = 'https://api.odcloud.kr/api/nts-businessman/v1/validate'; // 국세청 사업자상태조회 API 예시
 
 /**
- * 외부 API를 통해 사업자등록번호 유효성을 검사합니다.
+ * 외부 API를 통해 사업자등록번호 진위여부 검사합니다.
  * 이 함수는 국세청 홈택스의 '사업자등록상태조회' API를 예시로 구현되었습니다.
  * 실제 사용 시에는 사용하는 외부 API의 명세에 맞춰 URL, 파라미터, 응답 처리 로직을 수정해야 합니다.
  *

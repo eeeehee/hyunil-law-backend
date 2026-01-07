@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
-dotenv.config({ path: '.env.dev' }); // .env.dev 파일에서 환경 변수를 로드합니다.
-import { validateBizNumWithAPI } from './utils/bizNumAPI.js';
+dotenv.config({ path: '../../.env.dev' }); // .env.dev 파일에서 환경 변수를 로드합니다.
+import { validateBizNumWithAPI } from '../../utils/bizNumAPI.js';
 
 async function testBizNumAPI() {
     console.log('=== 사업자등록번호 유효성 검사 API 테스트 시작 ===\n');

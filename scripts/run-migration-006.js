@@ -10,7 +10,7 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 async function runMigration() {
     let connection;
@@ -33,7 +33,7 @@ async function runMigration() {
         console.log('✅ 데이터베이스 연결 성공\n');
 
         // 마이그레이션 SQL 파일 읽기
-        const sqlPath = path.join(__dirname, 'database', 'migrations', '006_create_approval_requests_table.sql');
+        const sqlPath = path.join(__dirname, '..', 'database', 'migrations', '006_create_approval_requests_table.sql');
         const sql = fs.readFileSync(sqlPath, 'utf8');
 
         console.log('📄 마이그레이션 SQL 실행 중...\n');

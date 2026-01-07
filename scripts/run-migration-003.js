@@ -1,4 +1,4 @@
-import {query} from './config/database.js';
+import {query} from '../config/database.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 
 async function runMigration() {
     try {
-        const sql = fs.readFileSync(path.join(__dirname, 'database/migrations/003_create_payments_table.sql'), 'utf8');
+        const sql = fs.readFileSync(path.join(__dirname, '../database/migrations/003_create_payments_table.sql'), 'utf8');
 
         // SQL을 구문별로 분리하여 실행
         const statements = sql.split(';').filter(s => s.trim());

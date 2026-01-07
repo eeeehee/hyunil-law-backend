@@ -1,5 +1,5 @@
 // DB 사용자 확인 스크립트
-import { query } from './config/database.js';
+import { query } from '../config/database.js';
 
 async function checkUsers() {
     try {
