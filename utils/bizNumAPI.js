@@ -9,7 +9,7 @@ const BIZ_NUM_API_URL = 'https://api.odcloud.kr/api/nts-businessman/v1/validate'
  * 이 함수는 국세청 홈택스의 '사업자등록상태조회' API를 예시로 구현되었습니다.
  * 실제 사용 시에는 사용하는 외부 API의 명세에 맞춰 URL, 파라미터, 응답 처리 로직을 수정해야 합니다.
  *
- * @param {string} bizNum - 검증할 사업자등록번호 (예: '123-45-67890')
+ *
  * @returns {Promise<boolean>} 유효하면 true, 아니면 false를 반환합니다.
  */
 export async function validateBizNumWithAPI(bizNum) {
@@ -20,13 +20,9 @@ export async function validateBizNumWithAPI(bizNum) {
         return true;
     }
 
-    // 사업자등록번호에서 하이픈 제거
-    const cleanedBizNum = bizNum.replace(/-/g, '');
 
     try {
-        const requestBody = {
-            b_no: [cleanedBizNum]
-        };
+        const requestBody = bizNum
 
         const response = await fetch(`${BIZ_NUM_API_URL}?serviceKey=${BIZ_NUM_API_KEY}`, {
             method: 'POST',

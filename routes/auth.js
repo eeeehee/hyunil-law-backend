@@ -120,18 +120,6 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // 이메일 중복 확인
-    const existingUser = await query(
-      'SELECT uid FROM users WHERE email = ?',
-      [email]
-    );
-    if (existingUser.length > 0) {
-      return res.status(409).json({
-        error: 'Email already exists',
-        message: '이미 사용 중인 이메일입니다.'
-      });
-    }
-
     // ✅ 외부 API를 통한 사업자등록번호 유효성 검사
     const isBizNumValid = await validateBizNumWithAPI(bizNum);
     if (!isBizNumValid) {
