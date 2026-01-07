@@ -4,6 +4,8 @@
 import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken, requireAdmin, requireAdminOrCEO } from '../middleware/auth.js';
+import { createPost } from '../utils/post_service.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
@@ -16,16 +18,20 @@ const router = express.Router();
  */
 router.get('/', authenticateToken, async (req, res) => {
     try {
+        console.log('🔍 승인 요청 목록 조회 시작');
+        console.log('📥 Query params:', req.query);
+        console.log('👤 User:', { uid: req.user?.uid, role: req.user?.role, bizNum: req.user?.bizNum });
+
         const { status, bizNum } = req.query;
         const user = req.user;
 
         let sql = `
             SELECT
                 ar.*,
-                u.managerName as requesterName,
+                u.manager_name as requesterName,
                 u.email as requesterEmail,
-                u.department as requesterDepartment,
-                approver.managerName as approverName
+                COALESCE(u.department, '') as requesterDepartment,
+                approver.manager_name as approverName
             FROM approval_requests ar
             LEFT JOIN users u ON ar.uid = u.uid
             LEFT JOIN users approver ON ar.approvedBy = approver.uid
@@ -59,7 +65,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
         sql += ' ORDER BY ar.createdAt DESC';
 
+        console.log('📝 실행할 SQL:', sql);
+        console.log('📌 SQL params:', params);
+
         const requests = await query(sql, params);
+
+        console.log('✅ 조회된 요청 수:', requests.length);
 
         // requestData JSON 파싱
         const parsedRequests = requests.map(req => ({
@@ -75,10 +86,16 @@ router.get('/', authenticateToken, async (req, res) => {
             count: parsedRequests.length
         });
     } catch (error) {
-        console.error('승인 요청 목록 조회 에러:', error);
+        console.error('❌ 승인 요청 목록 조회 에러:', error);
+        console.error('에러 코드:', error.code);
+        console.error('에러 번호:', error.errno);
+        console.error('SQL State:', error.sqlState);
+        console.error('SQL 메시지:', error.sqlMessage);
+        console.error('SQL:', error.sql);
         res.status(500).json({
             error: 'Internal server error',
-            message: '승인 요청 목록을 불러오는 중 오류가 발생했습니다.'
+            message: '승인 요청 목록을 불러오는 중 오류가 발생했습니다.',
+            detail: error.sqlMessage || error.message
         });
     }
 });
@@ -95,10 +112,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
         const [request] = await query(`
             SELECT
                 ar.*,
-                u.managerName as requesterName,
+                u.manager_name as requesterName,
                 u.email as requesterEmail,
-                u.department as requesterDepartment,
-                approver.managerName as approverName
+                COALESCE(u.department, '') as requesterDepartment,
+                approver.manager_name as approverName
             FROM approval_requests ar
             LEFT JOIN users u ON ar.uid = u.uid
             LEFT JOIN users approver ON ar.approvedBy = approver.uid
@@ -139,15 +156,28 @@ router.get('/:id', authenticateToken, async (req, res) => {
  */
 router.post('/', authenticateToken, async (req, res) => {
     try {
+        console.log('🔔 승인 요청 생성 시작');
+        console.log('📥 Request body:', req.body);
+        console.log('👤 User info:', { uid: req.user?.uid, bizNum: req.user?.bizNum, role: req.user?.role });
+
         const { requestType, requestData } = req.body;
         const user = req.user;
 
         if (!requestType || !requestData) {
+            console.log('❌ 필수 필드 누락:', { requestType, requestData });
             return res.status(400).json({
                 error: 'Bad request',
                 message: '요청 유형과 상세 정보는 필수입니다.'
             });
         }
+
+        console.log('✅ 필드 검증 통과');
+        console.log('💾 DB에 저장 시도:', {
+            uid: user.uid,
+            bizNum: user.bizNum,
+            requestType,
+            requestData
+        });
 
         // 승인 요청 생성
         const result = await query(`
@@ -160,16 +190,22 @@ router.post('/', authenticateToken, async (req, res) => {
             JSON.stringify(requestData)
         ]);
 
+        console.log('✨ 승인 요청 생성 완료:', result.insertId);
+
         res.status(201).json({
             success: true,
             message: '승인 요청이 생성되었습니다.',
-            requestId: result.insertId
+            requestId: Number(result.insertId) // BigInt를 Number로 변환
         });
     } catch (error) {
-        console.error('승인 요청 생성 에러:', error);
+        console.error('❌ 승인 요청 생성 에러:', error);
+        console.error('에러 스택:', error.stack);
+        console.error('에러 코드:', error.code);
+        console.error('에러 메시지:', error.message);
         res.status(500).json({
             error: 'Internal server error',
-            message: '승인 요청 생성 중 오류가 발생했습니다.'
+            message: '승인 요청 생성 중 오류가 발생했습니다.',
+            detail: error.message
         });
     }
 });
@@ -221,6 +257,12 @@ router.put('/:id/approve', authenticateToken, requireAdminOrCEO, async (req, res
             ? JSON.parse(request.requestData)
             : request.requestData;
 
+        // 요청자 정보 조회
+        const [requester] = await query('SELECT * FROM users WHERE uid = ?', [request.uid]);
+        if (!requester) {
+            return res.status(404).json({ message: '요청한 사용자를 찾을 수 없습니다.' });
+        }
+
         if (request.requestType === '부서변경') {
             // 부서 변경 적용
             await query(`
@@ -228,6 +270,22 @@ router.put('/:id/approve', authenticateToken, requireAdminOrCEO, async (req, res
                 SET department = ?
                 WHERE uid = ?
             `, [requestData.toDepartment, request.uid]);
+        } else if (request.requestType === '자문요청') {
+            await createPost({ ...requestData }, requester);
+        } else if (request.requestType === '전화상담') {
+            await createPost({ ...requestData }, requester);
+        } else if (request.requestType === '추가이용문의') {
+            await createPost({ 
+                category: 'extra_usage_quote',
+                status: 'pending',
+                ...requestData 
+            }, requester);
+        } else if (request.requestType === '요금제변경신청') {
+            await createPost({ 
+                category: 'plan_change',
+                status: 'pending',
+                ...requestData 
+            }, requester);
         }
         // 향후 다른 요청 유형 추가 가능
 
