@@ -373,7 +373,7 @@ router.post('/employees', authenticateToken, requireRole('master', 'admin', 'gen
 });
 
 
-router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', 'admin'), async (req, res) => {
+router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', 'admin', 'general_manager'), async (req, res) => {
     try {
         const { uid } = req.params;
         const { suspend } = req.body; // true: 중지, false: 복구
