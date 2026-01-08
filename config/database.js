@@ -7,7 +7,18 @@ import { fileURLToPath } from 'url';
 // Always load .env from the backend directory regardless of where Node is started from
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+// 개발 환경 확인 (NODE_ENV가 development인 경우)
+const isDev = process.env.NODE_ENV === 'development';
+
+if (isDev) {
+
+    console.log('🔧 개발 환경 설정(.env.dev)을 로드합니다.');
+    dotenv.config({ path: path.join(__dirname, '..', '.env.dev') });
+} else {
+    console.log('🔧 기타 환경 설정(.env)을 로드합니다.');
+    dotenv.config({ path: path.join(__dirname, '..', '.env') });
+}
 
 // Connection pool 생성
 const pool = mariadb.createPool({
