@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.dev' });
 
 const BIZ_NUM_API_KEY = process.env.BIZ_NUM_API_KEY;
-const BIZ_NUM_API_URL = 'https://api.odcloud.kr/api/nts-businessman/v1/validate'; // 국세청 사업자상태조회 API 예시
+const BIZ_NUM_API_URL = 'https://api.odcloud.kr/api/nts-businessman/v1/validate'; // 국세청 진위여부 API
 
 /**
  * 외부 API를 통해 사업자등록번호 진위여부 검사합니다.
@@ -12,17 +12,24 @@ const BIZ_NUM_API_URL = 'https://api.odcloud.kr/api/nts-businessman/v1/validate'
  *
  * @returns {Promise<boolean>} 유효하면 true, 아니면 false를 반환합니다.
  */
-export async function validateBizNumWithAPI(bizNum) {
+export async function validateBizNumWithAPI(bizNum, openDate, representativeName) {
     if (!BIZ_NUM_API_KEY) {
         console.error('❌ BIZ_NUM_API_KEY 환경 변수가 설정되지 않았습니다.');
-        // API 키가 없으면 일단 유효하다고 간주하거나, 에러를 발생시킬 수 있습니다.
-        // 여기서는 개발 편의를 위해 true를 반환하지만, 실제 프로덕션에서는 false 또는 throw error가 더 안전합니다.
         return true;
     }
 
-
     try {
-        const requestBody = bizNum
+        // openDate 포맷 정리 (YYYY-MM-DD -> YYYYMMDD)
+        const formattedDate = openDate ? openDate.replace(/-/g, '') : '';
+        const requestBody = {
+            "businesses": [
+                {
+                    "b_no": bizNum.replace(/-/g, ''), // 하이픈 제거
+                    "start_dt": formattedDate,
+                    "p_nm": representativeName
+                }
+            ]
+        };
 
         const response = await fetch(`${BIZ_NUM_API_URL}?serviceKey=${BIZ_NUM_API_KEY}`, {
             method: 'POST',
@@ -39,38 +46,44 @@ export async function validateBizNumWithAPI(bizNum) {
 
         const data = await response.json();
         
-        // 국세청 API 응답 형식에 따라 유효성 검사
-        // data.data 배열에 각 사업자등록번호에 대한 결과가 담깁니다.
-        // '사업자등록상태' 필드가 '계속사업자' 또는 '휴업자', '폐업자' 등을 반환합니다.
-        // 여기서는 '계속사업자'만 유효하다고 간주합니다. (요구사항에 따라 변경 가능)
+        // 국세청 진위여부 API 응답 처리
         // {
         //     "status_code": "OK",
-        //     "match_cnt": 1,
-        //     "request_cnt": 1,
         //     "data": [
-        //     {
-        //         "b_no": "0000000000",
-        //         "b_stt": "계속사업자",
-        //         "b_stt_cd": "01",
-        //         "tax_type": "부가가치세 일반과세자",
-        //         "tax_type_cd": "01",
-        //         "end_dt": "20000101",
-        //         "utcc_yn": "Y",
-        //         "tax_type_change_dt": "20000101",
-        //         "invoice_apply_dt": "20000101",
-        //         "rbf_tax_type": "부가가치세 일반과세자",
-        //         "rbf_tax_type_cd": "01"
-        //     }
-        // ]
+        //         {
+        //             "b_no": "...",
+        //             "valid": "01",  // 01: 유효, 02: 유효하지 않음
+        //             "valid_msg": "확인 완료" (혹은 불일치 메시지)
+        //             ...
+        //             "status": {
+        //                 "b_stt": "계속사업자",
+        //                 "b_stt_cd": "01"
+        //             }
+        //         }
+        //     ]
         // }
+        
         if (data && data.data && data.data.length > 0) {
-            // 응답 형식에 따라 status 객체 내의 b_stt_cd를 사용
-            const statusCode = data.data[0]?.status?.b_stt_cd; // 사업자등록상태코드
-            // b_stt_cd가 '01'이면 '계속사업자'를 의미합니다.
-            return statusCode === '01';
+            const result = data.data[0];
+            // valid 코드가 '01'이면 일치, '02'이면 불일치
+            // 그리고 status.b_stt_cd가 '01'이어야 계속사업자
+            // 하지만 진위여부 API(/validate)는 일치 여부(valid)를 주로 봄.
+            // 여기서는 'valid'가 '01'이고 (정보 일치), 'status.b_stt_cd'가 '01' (계속사업자) 인 경우를 성공으로 봅니다.
+            
+            const isValidInfo = result.valid === '01';
+            const isActiveBusiness = result.status?.b_stt_cd === '01';
+
+            if (!isValidInfo) {
+                 console.log(`❌ 사업자 정보 불일치: ${result.valid_msg}`);
+            }
+            if (!isActiveBusiness) {
+                console.log(`❌ 휴/폐업 사업자 상태: ${result.status?.b_stt}`);
+            }
+
+            return isValidInfo && isActiveBusiness;
         }
 
-        return false; // API 응답 형식이 예상과 다름
+        return false;
     } catch (error) {
         console.error('❌ 사업자등록번호 유효성 검사 중 오류 발생:', error);
         return false;

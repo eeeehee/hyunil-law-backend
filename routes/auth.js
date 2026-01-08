@@ -71,7 +71,8 @@ router.post('/signup', async (req, res) => {
       companyPhone,
       managerName,
       phone,
-      department = '전사'
+      department = '전사',
+      openDate
     } = req.body;
 
     // bizNum 필수/형식 검증
@@ -100,7 +101,8 @@ router.post('/signup', async (req, res) => {
       !password ||
       !companyName ||
       !representativeName ||
-      !managerName
+      !managerName ||
+      !openDate
     ) {
       return res.status(400).json({
         error: 'Missing required fields',
@@ -121,7 +123,7 @@ router.post('/signup', async (req, res) => {
     }
 
     // ✅ 외부 API를 통한 사업자등록번호 유효성 검사
-    const isBizNumValid = await validateBizNumWithAPI(bizNum);
+    const isBizNumValid = await validateBizNumWithAPI(bizNum, openDate, representativeName);
     if (!isBizNumValid) {
         console.warn(`❌ [회원가입] 유효하지 않은 사업자등록번호: ${bizNum}`);
         return res.status(400).json({
