@@ -369,6 +369,34 @@ router.delete('/:docId', async (req, res) => {
             return res.status(403).json({ message: '삭제 권한이 없습니다.' });
         }
 
+        // 자문 횟수 복구 로직
+        const excludeCategories = ['phone_log', 'payment_request', 'plan_change', 'payment_method', 'member_req', 'extra_usage_quote', 'member_req_internal', 'member_req_admin'];
+        const shouldDecrementQa = !excludeCategories.includes(post.category) && post.category !== 'phone_request';
+        const shouldDecrementPhone = post.category === 'phone_request';
+
+        if (shouldDecrementQa || shouldDecrementPhone) {
+            // 게시글 작성자 정보 조회
+            const [authorInfo] = await query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [post.authorUid]);
+            let targetUidForUsage = post.authorUid;
+
+            // 일반 직원(manager, user, staff)이 작성한 경우 CEO의 횟수를 복구
+            if (authorInfo && ['manager', 'user', 'staff'].includes(authorInfo.role)) {
+                const [ownerInfo] = await query('SELECT uid FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1', [authorInfo.biz_num]);
+                if (ownerInfo) {
+                    targetUidForUsage = ownerInfo.uid;
+                }
+            }
+
+            // 횟수 복구 (차감된 횟수를 되돌림)
+            if (shouldDecrementQa) {
+                await query(`UPDATE users SET qa_used_count = GREATEST(0, qa_used_count - 1) WHERE uid = ?`, [targetUidForUsage]);
+                console.log(`✅ 서면 자문 횟수 복구: uid=${targetUidForUsage}, docId=${docId}`);
+            } else if (shouldDecrementPhone) {
+                await query(`UPDATE users SET phone_used_count = GREATEST(0, phone_used_count - 1) WHERE uid = ?`, [targetUidForUsage]);
+                console.log(`✅ 전화 상담 횟수 복구: uid=${targetUidForUsage}, docId=${docId}`);
+            }
+        }
+
         await query('DELETE FROM posts WHERE docId = ?', [docId]);
 
         res.json({ message: '게시글이 삭제되었습니다.' });

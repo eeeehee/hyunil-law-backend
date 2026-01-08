@@ -69,7 +69,9 @@ CREATE TABLE IF NOT EXISTS admin_logs (
 -- posts 테이블 생성 (자문 내역)
 CREATE TABLE IF NOT EXISTS posts (
     docId VARCHAR(36) PRIMARY KEY,
-    uid VARCHAR(36) NOT NULL,
+    uid VARCHAR(36) NULL, -- Made nullable for guest posts
+    authorName VARCHAR(200), -- New column for guest name/company
+    contact VARCHAR(50),    -- New column for guest contact info
     bizNum VARCHAR(50),
     category VARCHAR(50),
     department VARCHAR(100),
@@ -88,8 +90,8 @@ CREATE TABLE IF NOT EXISTS posts (
     INDEX idx_bizNum (bizNum),
     INDEX idx_category (category),
     INDEX idx_status (status),
-    INDEX idx_createdAt (createdAt),
-    FOREIGN KEY (uid) REFERENCES users(uid) ON DELETE CASCADE
+    INDEX idx_createdAt (createdAt)
+    -- FOREIGN KEY (uid) REFERENCES users(uid) ON DELETE CASCADE -- Removed due to nullable uid
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- reports 테이블 생성

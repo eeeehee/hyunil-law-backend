@@ -85,10 +85,10 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
         const { bizNum } = req.params;
 
         const rows = await query(
-            `SELECT uid, email, manager_name, department, role, phone, created_at
-             FROM users
-             WHERE biz_num = ? AND role IN ('owner', 'manager', 'user', 'staff')
-             ORDER BY created_at DESC`,
+            `SELECT u.uid, u.email, u.manager_name, u.department, u.role, u.phone, u.created_at, u.status
+             FROM users u
+             WHERE u.biz_num = ? AND u.role IN ('owner', 'manager', 'user', 'staff')
+             ORDER BY u.created_at DESC`,
             [bizNum]
         );
 
@@ -99,7 +99,8 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
             department: row.department,
             role: row.role,
             phone: row.phone,
-            createdAt: row.created_at
+            createdAt: row.created_at,
+            status: row.status
         }));
 
         res.json({ employees });
@@ -378,11 +379,11 @@ router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', '
         const { uid } = req.params;
         const { suspend } = req.body; // true: 중지, false: 복구
 
-        const isActive = suspend ? 0 : 1;
+        const status = suspend ? 'Suspended' : 'Active';
 
         await query(
-            `UPDATE users SET isActive = ? WHERE uid = ?`,
-            [isActive, uid]
+            `UPDATE users SET status = ? WHERE uid = ?`,
+            [status, uid]
         );
 
         const action = suspend ? '권한 중지' : '권한 복구';

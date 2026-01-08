@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function createPost(postData, user) {
     // ✅ 기본 필드
-    const { category, title, content, fileUrls, status } = postData;
+    const { category, title, content, fileUrls, status, authorName, contact } = postData; // Added authorName, contact
 
     // ✅ (관리자 전용) 특정 사업자 카드에 귀속시키기 위한 옵션 필드
     const targetAuthorUid = postData.authorUid || postData.targetOwnerUid || null;
@@ -20,10 +20,18 @@ export async function createPost(postData, user) {
 
     const fileUrlsJson = fileUrls ? JSON.stringify(fileUrls) : null;
 
-    let authorUidToSave = user.uid;
-    let companyNameToSave = user.companyName;
+    let authorUidToSave = null; // Default to null for unauthenticated users
+    let companyNameToSave = null;
 
     const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(user.role);
+
+    if (user && user.uid) { // If a user is authenticated
+        authorUidToSave = user.uid;
+        companyNameToSave = user.companyName; // Use user's companyName if authenticated
+    } else { // Unauthenticated user - use provided authorName and contact
+        // For unauthenticated posts, companyName can be derived from authorName if it's a company
+        companyNameToSave = postData.authorName || null;
+    }
 
     if (isAdmin && category === 'phone_log') {
         if (targetBizNum) {
@@ -60,27 +68,30 @@ export async function createPost(postData, user) {
     const shouldIncrementPhone = category === 'phone_request';
 
     if (shouldIncrementQa || shouldIncrementPhone) {
-        const [authorInfo] = await query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [authorUidToSave]);
-        let targetUidForUsage = authorUidToSave;
+        // Only increment usage if an authenticated user exists
+        if (authorUidToSave) {
+            const [authorInfo] = await query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [authorUidToSave]);
+            let targetUidForUsage = authorUidToSave;
 
-        if (authorInfo && ['manager', 'user', 'staff'].includes(authorInfo.role)) {
-            const [ownerInfo] = await query('SELECT uid FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1', [authorInfo.biz_num]);
-            if (ownerInfo) {
-                targetUidForUsage = ownerInfo.uid;
+            if (authorInfo && ['manager', 'user', 'staff'].includes(authorInfo.role)) {
+                const [ownerInfo] = await query('SELECT uid FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1', [authorInfo.biz_num]);
+                if (ownerInfo) {
+                    targetUidForUsage = ownerInfo.uid;
+                }
             }
-        }
 
-        if (shouldIncrementQa) {
-            await query(`UPDATE users SET qa_used_count = qa_used_count + 1 WHERE uid = ?`, [targetUidForUsage]);
-        } else if (shouldIncrementPhone) {
-            await query(`UPDATE users SET phone_used_count = phone_used_count + 1 WHERE uid = ?`, [targetUidForUsage]);
+            if (shouldIncrementQa) {
+                await query(`UPDATE users SET qa_used_count = qa_used_count + 1 WHERE uid = ?`, [targetUidForUsage]);
+            } else if (shouldIncrementPhone) {
+                await query(`UPDATE users SET phone_used_count = phone_used_count + 1 WHERE uid = ?`, [targetUidForUsage]);
+            }
         }
     }
 
     await query(
-        `INSERT INTO posts (docId, category, title, content, fileUrls, authorUid, companyName, status, answeredBy, answeredAt, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [docId, category, title, content, fileUrlsJson, authorUidToSave, companyNameToSave, statusToSave, answeredByToSave, answeredAtToSave, now, now]
+        `INSERT INTO posts (docId, category, title, content, fileUrls, authorUid, companyName, status, answeredBy, answeredAt, createdAt, updatedAt, authorName, contact)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [docId, category, title, content, fileUrlsJson, authorUidToSave, companyNameToSave, statusToSave, answeredByToSave, answeredAtToSave, now, now, authorName, contact]
     );
 
     const [newPost] = await query('SELECT * FROM posts WHERE docId = ?', [docId]);
