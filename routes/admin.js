@@ -85,7 +85,7 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
         const { bizNum } = req.params;
 
         const rows = await query(
-            `SELECT uid, email, manager_name, department, role, phone, created_at
+            `SELECT uid, email, manager_name, department, role, phone, created_at, isActive, status
              FROM users
              WHERE biz_num = ? AND role IN ('owner', 'manager', 'user', 'staff')
              ORDER BY created_at DESC`,
@@ -99,7 +99,9 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
             department: row.department,
             role: row.role,
             phone: row.phone,
-            createdAt: row.created_at
+            createdAt: row.created_at,
+            isActive: row.isActive,
+            status: row.status
         }));
 
         res.json({ employees });
