@@ -275,7 +275,7 @@ router.post('/send-and-register', authenticateToken, requireRole('master', 'admi
             const paymentStatus = type === 'BILL' ? 'scheduled' : 'paid';
 
             await query(
-                `INSERT INTO payment_history
+                `INSERT INTO payments
                 (docId, companyName, type, plan, amount, status, method, date, note, createdAt)
                 VALUES (?, ?, 'advisory', 'Manual', ?, ?, ?, NOW(), ?, NOW())`,
                 [paymentDocId, companyName, amount, paymentStatus, type === 'RECEIPT' ? 'Transfer' : 'Unknown', `[${type === 'BILL' ? '수동청구' : '수동영수증'}] ${title}`]
@@ -304,45 +304,37 @@ router.get('/stats', authenticateToken, requireRole('master', 'admin'), async (r
     try {
         const { month } = req.query; // YYYY-MM 형식
 
-        let dateFilter = '';
+        let dateCondition = '';
         const params = [];
 
         if (month) {
-            dateFilter = 'AND DATE_FORMAT(sentAt, "%Y-%m") = ?';
+            dateCondition = 'DATE_FORMAT(sentAt, "%Y-%m") = ?';
             params.push(month);
         } else {
             // 이번 달
             const now = new Date();
             const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            dateFilter = 'AND DATE_FORMAT(sentAt, "%Y-%m") = ?';
+            dateCondition = 'DATE_FORMAT(sentAt, "%Y-%m") = ?';
             params.push(currentMonth);
         }
 
-        const billCount = await query(
-            `SELECT COUNT(*) as count FROM billing_logs WHERE type = 'BILL' ${dateFilter}`,
-            params
-        );
+        const sql = `
+            SELECT
+                SUM(CASE WHEN type = 'BILL' THEN 1 ELSE 0 END) as billCount,
+                SUM(CASE WHEN type = 'RECEIPT' THEN 1 ELSE 0 END) as receiptCount,
+                SUM(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) as failCount,
+                SUM(CASE WHEN status = 'sent' AND (linkedToPayment = FALSE OR linkedToPayment IS NULL) THEN 1 ELSE 0 END) as pendingCount
+            FROM billing_logs
+            WHERE ${dateCondition}
+        `;
 
-        const receiptCount = await query(
-            `SELECT COUNT(*) as count FROM billing_logs WHERE type = 'RECEIPT' ${dateFilter}`,
-            params
-        );
-
-        const failCount = await query(
-            `SELECT COUNT(*) as count FROM billing_logs WHERE status = 'fail' ${dateFilter}`,
-            params
-        );
-
-        const pendingCount = await query(
-            `SELECT COUNT(*) as count FROM billing_logs WHERE status = 'sent' AND linkedToPayment = FALSE ${dateFilter}`,
-            params
-        );
+        const [stats] = await query(sql, params);
 
         res.json({
-            billCount: billCount[0].count,
-            receiptCount: receiptCount[0].count,
-            failCount: failCount[0].count,
-            pendingCount: pendingCount[0].count
+            billCount: stats.billCount || 0,
+            receiptCount: stats.receiptCount || 0,
+            failCount: stats.failCount || 0,
+            pendingCount: stats.pendingCount || 0
         });
     } catch (error) {
         console.error('청구서 통계 에러:', error);
