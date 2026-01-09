@@ -400,4 +400,78 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     }
 });
 
+/**
+ * @route   PUT /api/approval-requests/bulk-approve
+ * @desc    여러 승인 요청을 일괄 승인
+ * @access  Private (CEO, Admin만 가능)
+ * @body    {array} requestIds - 승인할 요청 ID들의 배열
+ */
+router.put('/bulk-approve', authenticateToken, requireAdminOrCEO, async (req, res) => {
+    const { requestIds } = req.body;
+    const user = req.user;
+
+    if (!Array.isArray(requestIds) || requestIds.length === 0) {
+        return res.status(400).json({ message: '요청 ID 배열이 필요합니다.' });
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+
+    for (const id of requestIds) {
+        try {
+            const [request] = await query('SELECT * FROM approval_requests WHERE id = ?', [id]);
+
+            if (!request || request.status !== 'Pending' || (user.role === 'owner' && request.bizNum !== user.bizNum)) {
+                // 유효하지 않거나 권한이 없는 요청은 건너뜀
+                failCount++;
+                errors.push(`ID ${id}: 처리할 수 없는 요청입니다.`);
+                continue;
+            }
+            
+            // 1. 승인 처리
+            await query(`UPDATE approval_requests SET status = 'Approved', approvedBy = ?, approvedAt = NOW() WHERE id = ?`, [user.uid, id]);
+
+            // 2. 요청 유형에 따라 실제 변경 적용
+            const requestData = typeof request.requestData === 'string' ? JSON.parse(request.requestData) : request.requestData;
+            const [requester] = await query('SELECT * FROM users WHERE uid = ?', [request.uid]);
+
+            if (requester) {
+                if (request.requestType === '부서변경') {
+                    await query(`UPDATE users SET department = ? WHERE uid = ?`, [requestData.toDepartment, request.uid]);
+                } else if (['자문요청', '전화상담', '추가이용문의', '요금제변경신청'].includes(request.requestType)) {
+                     const postCategoryMap = {
+                        '자문요청': requestData.category || 'etc',
+                        '전화상담': 'phone_request',
+                        '추가이용문의': 'extra_usage_quote',
+                        '요금제변경신청': 'plan_change'
+                     };
+                     await createPost({ 
+                         category: postCategoryMap[request.requestType],
+                         status: 'pending',
+                         ...requestData 
+                     }, requester);
+                }
+            }
+            successCount++;
+        } catch (error) {
+            failCount++;
+            errors.push(`ID ${id}: ${error.message}`);
+            console.error(`일괄 승인 중 개별 항목 처리 실패 (ID: ${id}):`, error);
+        }
+    }
+
+    if (failCount > 0) {
+        return res.status(207).json({ 
+            message: `일괄 승인 완료. 성공: ${successCount}건, 실패: ${failCount}건`,
+            successCount,
+            failCount,
+            errors
+        });
+    }
+
+    res.json({ success: true, message: `${successCount}건의 요청이 성공적으로 승인되었습니다.` });
+});
+
+
 export default router;
