@@ -15,61 +15,56 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
     try {
         const { status, search } = req.query;
 
+        // ✅ N+1 쿼리 제거: LEFT JOIN으로 한 번에 직원 수 조회
         let sql = `
             SELECT
-                uid, email, company_name, manager_name, biz_num, phone,
-                role, plan, isActive, qaUsedCount, phoneUsedCount,
-                customQaLimit, customPhoneLimit, customLimit,
-                contractStartDate, contractEndDate, autoRenewal,
-                created_at, lastLoginAt, logs
-            FROM users
-            WHERE role = 'owner'
+                u1.uid, u1.email, u1.company_name, u1.manager_name, u1.biz_num, u1.phone,
+                u1.role, u1.plan, u1.isActive, u1.qaUsedCount, u1.phoneUsedCount,
+                u1.customQaLimit, u1.customPhoneLimit, u1.customLimit,
+                u1.contractStartDate, u1.contractEndDate, u1.autoRenewal,
+                u1.created_at, u1.lastLoginAt, u1.logs,
+                COUNT(u2.uid) as employeeCount
+            FROM users u1
+            LEFT JOIN users u2 ON u1.biz_num = u2.biz_num
+                AND u2.role IN ('owner', 'manager', 'user', 'staff')
+                AND u2.isActive = 1
+            WHERE u1.role = 'owner'
         `;
         const params = [];
 
         if (search) {
-            sql += ` AND (company_name LIKE ? OR manager_name LIKE ? OR biz_num LIKE ?)`;
+            sql += ` AND (u1.company_name LIKE ? OR u1.manager_name LIKE ? OR u1.biz_num LIKE ?)`;
             const searchPattern = `%${search}%`;
             params.push(searchPattern, searchPattern, searchPattern);
         }
 
-        sql += ` ORDER BY created_at DESC`;
+        sql += ` GROUP BY u1.uid ORDER BY u1.created_at DESC`;
 
         const rows = await query(sql, params);
 
-        // 각 회사의 직원 수를 조회
-        const companies = await Promise.all(rows.map(async (row) => {
-            // 해당 회사의 직원 수 카운트 (owner 포함)
-            const [countResult] = await query(
-                `SELECT COUNT(*) as count
-                 FROM users
-                 WHERE biz_num = ? AND role IN ('owner', 'manager', 'user', 'staff')`,
-                [row.biz_num]
-            );
-
-            return {
-                uid: row.uid,
-                email: row.email,
-                companyName: row.company_name,
-                managerName: row.manager_name,
-                bizNum: row.biz_num,
-                phone: row.phone,
-                role: row.role,
-                plan: row.plan,
-                isActive: row.isActive,
-                qaUsedCount: row.qaUsedCount,
-                phoneUsedCount: row.phoneUsedCount,
-                customQaLimit: row.customQaLimit,
-                customPhoneLimit: row.customPhoneLimit,
-                customLimit: row.customLimit,
-                contractStartDate: row.contractStartDate,
-                contractEndDate: row.contractEndDate,
-                autoRenewal: row.autoRenewal,
-                createdAt: row.created_at,
-                lastLoginAt: row.lastLoginAt,
-                logs: row.logs,
-                employeeCount: Number(countResult.count) || 0  // 직원 수 추가
-            };
+        // ✅ 단순 매핑만 수행 (추가 쿼리 없음)
+        const companies = rows.map(row => ({
+            uid: row.uid,
+            email: row.email,
+            companyName: row.company_name,
+            managerName: row.manager_name,
+            bizNum: row.biz_num,
+            phone: row.phone,
+            role: row.role,
+            plan: row.plan,
+            isActive: row.isActive,
+            qaUsedCount: row.qaUsedCount,
+            phoneUsedCount: row.phoneUsedCount,
+            customQaLimit: row.customQaLimit,
+            customPhoneLimit: row.customPhoneLimit,
+            customLimit: row.customLimit,
+            contractStartDate: row.contractStartDate,
+            contractEndDate: row.contractEndDate,
+            autoRenewal: row.autoRenewal,
+            createdAt: row.created_at,
+            lastLoginAt: row.lastLoginAt,
+            logs: row.logs,
+            employeeCount: Number(row.employeeCount) || 0
         }));
 
         res.json({ companies });
@@ -106,6 +101,50 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
         res.json({ employees });
     } catch (error) {
         console.error('직원 목록 조회 에러:', error);
+        res.status(500).json({ error: 'DatabaseError', message: '직원 목록을 불러올 수 없습니다.' });
+    }
+});
+
+// ✅ 여러 회사의 직원 목록 일괄 조회 (성능 최적화)
+router.post('/employees/batch', authenticateToken, requireRole('master', 'admin', 'general_manager', 'lawyer'), async (req, res) => {
+    try {
+        const { bizNums } = req.body;
+
+        if (!Array.isArray(bizNums) || bizNums.length === 0) {
+            return res.status(400).json({ error: 'InvalidInput', message: 'bizNums 배열이 필요합니다.' });
+        }
+
+        // IN 절로 한 번에 모든 직원 조회
+        const placeholders = bizNums.map(() => '?').join(', ');
+        const rows = await query(
+            `SELECT uid, email, manager_name, department, role, phone, created_at, isActive, biz_num
+             FROM users
+             WHERE biz_num IN (${placeholders}) AND role IN ('owner', 'manager', 'user', 'staff')
+             ORDER BY biz_num, created_at DESC`,
+            bizNums
+        );
+
+        // 사업자번호별로 그룹핑
+        const employeesByBizNum = {};
+        rows.forEach(row => {
+            if (!employeesByBizNum[row.biz_num]) {
+                employeesByBizNum[row.biz_num] = [];
+            }
+            employeesByBizNum[row.biz_num].push({
+                uid: row.uid,
+                email: row.email,
+                managerName: row.manager_name,
+                department: row.department,
+                role: row.role,
+                phone: row.phone,
+                createdAt: row.created_at,
+                isActive: row.isActive
+            });
+        });
+
+        res.json({ employeesByBizNum });
+    } catch (error) {
+        console.error('일괄 직원 목록 조회 에러:', error);
         res.status(500).json({ error: 'DatabaseError', message: '직원 목록을 불러올 수 없습니다.' });
     }
 });
