@@ -396,14 +396,40 @@ router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', '
 });
 
 // 직원 정보 수정
-router.put('/employees/:uid', authenticateToken, requireRole('master', 'admin', 'owner'), async (req, res) => {
+router.put('/employees/:uid', authenticateToken, requireRole('master', 'admin', 'general_manager', 'owner'), async (req, res) => {
     try {
         const { uid } = req.params;
         const { managerName, department, role, email } = req.body;
 
+        const updates = [];
+        const values = [];
+
+        if (managerName !== undefined) {
+            updates.push('manager_name = ?');
+            values.push(managerName);
+        }
+        if (department !== undefined) {
+            updates.push('department = ?');
+            values.push(department);
+        }
+        if (role !== undefined) {
+            updates.push('role = ?');
+            values.push(role);
+        }
+        if (email !== undefined) {
+            updates.push('email = ?');
+            values.push(email);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'NoUpdates', message: '수정할 내용이 없습니다.' });
+        }
+
+        values.push(uid);
+
         await query(
-            `UPDATE users SET manager_name = ?, department = ?, role = ?, email = ? WHERE uid = ?`,
-            [managerName, department, role, email, uid]
+            `UPDATE users SET ${updates.join(', ')} WHERE uid = ?`,
+            values
         );
 
         await addAdminLog(req.user.uid, req.user.managerName || req.user.manager_name, 'user', uid, 'EMPLOYEE_UPDATE', '직원 정보 수정');
