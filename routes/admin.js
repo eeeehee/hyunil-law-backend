@@ -379,20 +379,35 @@ router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', '
         const { uid } = req.params;
         const { suspend } = req.body; // true: 중지, false: 복구
 
+        console.log('[권한중지 요청]', { uid, suspend, isActive: suspend ? 0 : 1 });
+
         const isActive = suspend ? 0 : 1;
 
-        await query(
+        const result = await query(
             `UPDATE users SET isActive = ? WHERE uid = ?`,
             [isActive, uid]
         );
 
+        console.log('[권한중지 쿼리 결과]', result);
+
         const action = suspend ? '권한 중지' : '권한 복구';
-        await addAdminLog(req.user.uid, req.user.managerName || req.user.manager_name, 'user', uid, 'EMPLOYEE_SUSPEND', action);
+
+        // 로그 추가 실패해도 계속 진행
+        try {
+            await addAdminLog(req.user.uid, req.user.managerName || req.user.manager_name || 'admin', 'user', uid, 'EMPLOYEE_SUSPEND', action);
+        } catch (logError) {
+            console.error('관리자 로그 추가 실패 (무시):', logError);
+        }
 
         res.json({ message: `직원 ${action}이 완료되었습니다.` });
     } catch (error) {
         console.error('직원 상태 변경 에러:', error);
-        res.status(500).json({ error: 'DatabaseError', message: '직원 상태 변경에 실패했습니다.' });
+        console.error('에러 상세:', error.message, error.code, error.sqlMessage);
+        res.status(500).json({
+            error: 'DatabaseError',
+            message: '직원 상태 변경에 실패했습니다.',
+            detail: error.message
+        });
     }
 });
 
