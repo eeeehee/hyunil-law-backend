@@ -18,11 +18,7 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
         // ✅ N+1 쿼리 제거: LEFT JOIN으로 한 번에 직원 수 조회
         let sql = `
             SELECT
-                u1.uid, u1.email, u1.company_name, u1.manager_name, u1.biz_num, u1.phone,
-                u1.role, u1.plan, u1.qa_used_count, u1.phone_used_count,
-                u1.custom_qa_limit, u1.custom_phone_limit, u1.customLimit,
-                u1.contractStartDate, u1.contract_end_date, u1.autoRenewal,
-                u1.created_at, u1.lastLoginAt, u1.logs,
+                u1.uid, u1.email, u1.company_name, u1.manager_name, u1.biz_num, u1.role,
                 COUNT(u2.uid) as employeeCount
             FROM users u1
             LEFT JOIN users u2 ON u1.biz_num = u2.biz_num
@@ -48,20 +44,7 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
             companyName: row.company_name,
             managerName: row.manager_name,
             bizNum: row.biz_num,
-            phone: row.phone,
             role: row.role,
-            plan: row.plan,
-            qaUsedCount: row.qa_used_count,
-            phoneUsedCount: row.phone_used_count,
-            customQaLimit: row.custom_qa_limit,
-            customPhoneLimit: row.custom_phone_limit,
-            customLimit: row.customLimit,
-            contractStartDate: row.contractStartDate,
-            contractEndDate: row.contract_end_date,
-            autoRenewal: row.autoRenewal,
-            createdAt: row.created_at,
-            lastLoginAt: row.lastLoginAt,
-            logs: row.logs,
             employeeCount: Number(row.employeeCount) || 0
         }));
 
