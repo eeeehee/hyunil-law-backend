@@ -27,7 +27,7 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
             FROM users u1
             LEFT JOIN users u2 ON u1.biz_num = u2.biz_num
                 AND u2.role IN ('owner', 'manager', 'user', 'staff')
-            WHERE u1.role = 'owner'
+            WHERE u1.role IN ('owner', 'master')
         `;
         const params = [];
 
