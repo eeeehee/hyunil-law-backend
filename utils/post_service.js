@@ -3,7 +3,8 @@ import { query } from '../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function createPost(postData, user, connection = null) {
-    const db = connection || query;
+    // connection이 없으면 { query } 객체로 감싸서 db.query() 형태로 호출 가능하게 함
+    const db = connection || { query };
 
     // ✅ 필드 분해 및 기본값 설정
     const { category, title, content, fileUrls, status } = postData;
