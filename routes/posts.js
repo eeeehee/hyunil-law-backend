@@ -73,6 +73,7 @@ router.get('/', async (req, res) => {
                        u.company_name AS companyName,
                        u.manager_name AS userManagerName,
                        u.department AS userDepartment,
+                       p.quoted_price AS quotedPrice,
                        u.biz_num AS authorBizNum,
                        u.plan AS userPlan
                 FROM posts p
@@ -87,6 +88,7 @@ router.get('/', async (req, res) => {
                        u.company_name AS companyName,
                        u.manager_name AS userManagerName,
                        u.department AS userDepartment,
+                       p.quoted_price AS quotedPrice,
                        u.biz_num AS authorBizNum,
                        u.plan AS userPlan
                 FROM posts p
@@ -150,6 +152,7 @@ router.get('/:docId', async (req, res) => {
                     u.company_name AS companyName,
                     u.manager_name AS userManagerName,
                     u.email AS userEmail,
+                    p.quoted_price AS quotedPrice,
                     u.biz_num AS authorBizNum,
                     u.plan AS userPlan
              FROM posts p
