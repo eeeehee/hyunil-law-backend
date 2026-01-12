@@ -61,39 +61,38 @@ router.get('/counts', async (req, res) => {
 // 게시글 목록 조회
 router.get('/', async (req, res) => {
     try {
-        const { category, status, search, department, limit = 50, offset = 0 } = req.query;
-
-        // uid 기반으로 조회, users 테이블에서 회사 정보 JOIN
-        let sql = `
-            SELECT p.docId, p.uid AS authorUid, p.category, p.title, p.content,
-                   p.department, p.status, p.priority, p.createdAt, p.updatedAt,
-                   p.answer,
-                   p.answeredAt,
-                   p.answeredBy,
-                   u.company_name AS companyName,
-                   u.company_name AS userCompanyName,
-                   u.manager_name AS userManagerName,
-                   u.department AS userDepartment,
-                   u.biz_num AS bizNum,
-                   u.biz_num AS authorBizNum,
-                   u.plan AS userPlan
-            FROM posts p
-            LEFT JOIN users u ON p.uid = u.uid
-            WHERE 1=1
-        `;
-        const params = [];
-
-        // 멀티테넌트 분리: master/admin/general_manager/lawyer 를 제외한 모든 계정은 자기 회사 것만
+        const { category, status, search, limit = 50, offset = 0 } = req.query;
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
-        if (!isAdmin) {
-            if (!req.user.bizNum) {
-                return res.status(400).json({
-                    error: 'bizNum missing in token',
-                    message: '사용자 사업자번호(bizNum) 정보가 없습니다.'
-                });
-            }
-            sql += ` AND u.biz_num = ?`;
-            params.push(req.user.bizNum);
+
+        let sql, params;
+
+        if (isAdmin) {
+            // 관리자: 전체 조회
+            sql = `
+                SELECT p.*,
+                       u.company_name AS companyName,
+                       u.manager_name AS userManagerName,
+                       u.biz_num AS authorBizNum,
+                       u.plan AS userPlan
+                FROM posts p
+                LEFT JOIN users u ON p.uid = u.uid
+                WHERE 1=1
+            `;
+            params = [];
+        } else {
+            // 일반 사용자: 같은 회사만
+            sql = `
+                SELECT p.*,
+                       u.company_name AS companyName,
+                       u.manager_name AS userManagerName,
+                       u.biz_num AS authorBizNum,
+                       u.plan AS userPlan
+                FROM posts p
+                INNER JOIN users u ON p.uid = u.uid
+                INNER JOIN users me ON u.biz_num = me.biz_num
+                WHERE me.uid = ?
+            `;
+            params = [req.user.uid];
         }
 
         if (category) {
@@ -126,33 +125,19 @@ router.get('/', async (req, res) => {
             params.push(`%${search}%`, `%${search}%`);
         }
 
-        if (department) {
-            sql += ` AND (p.department = ? OR u.department = ?)`;
-            params.push(department, department);
-        }
-
         sql += ` ORDER BY p.createdAt DESC LIMIT ? OFFSET ?`;
         params.push(parseInt(limit), parseInt(offset));
 
         const posts = await query(sql, params);
-
-        // 디버깅: 첫 번째 게시글 데이터 확인
-        if (posts.length > 0) {
-            console.log('📋 [게시글 목록 샘플]', {
-                docId: posts[0].docId,
-                title: posts[0].title,
-                status: posts[0].status,
-                answer: posts[0].answer ? '있음' : '없음',
-                담당자: posts[0].userManagerName || 'null',
-                답변자: posts[0].answeredBy || 'null'
-            });
-        }
-
         res.json({ posts, total: posts.length, limit: parseInt(limit), offset: parseInt(offset) });
 
     } catch (error) {
         console.error('게시글 목록 조회 에러:', error);
-        res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+        res.status(500).json({
+            message: '서버 오류가 발생했습니다.',
+            error: error.message,
+            sql: error.sql || null
+        });
     }
 });
 
@@ -160,17 +145,10 @@ router.get('/', async (req, res) => {
 router.get('/:docId', async (req, res) => {
     try {
         const [post] = await query(
-            `SELECT p.docId, p.uid AS authorUid, p.category, p.title, p.content,
-                    p.department, p.status, p.priority, p.createdAt, p.updatedAt,
-                    p.answer,
-                    p.answeredAt,
-                    p.answeredBy,
+            `SELECT p.*,
                     u.company_name AS companyName,
-                    u.company_name AS userCompanyName,
                     u.manager_name AS userManagerName,
-                    u.department AS userDepartment,
                     u.email AS userEmail,
-                    u.biz_num AS bizNum,
                     u.biz_num AS authorBizNum,
                     u.plan AS userPlan
              FROM posts p
@@ -183,38 +161,17 @@ router.get('/:docId', async (req, res) => {
             return res.status(404).json({ message: '게시글을 찾을 수 없습니다.' });
         }
 
-        // 디버깅: 게시글 상세 데이터 확인
-        console.log('📄 [게시글 상세]', {
-            docId: post.docId,
-            title: post.title,
-            status: post.status,
-            answer: post.answer ? '있음 (' + post.answer.substring(0, 20) + '...)' : '없음',
-            담당자: post.userManagerName || 'null',
-            답변자: post.answeredBy || 'null',
-            answeredAt: post.answeredAt || 'null',
-            authorUid: post.authorUid,
-            bizNum: post.bizNum,
-            companyName: post.companyName
-        });
-
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
-        const isOwner = post.authorUid === req.user.uid;
-        const isCEO = req.user.role === 'owner'; // CEO는 자기 회사 모든 글 조회 가능
-        const isSameCompany = (post.bizNum === req.user.bizNum) ||
-                              (post.authorBizNum === req.user.bizNum);
-
-        console.log('🔐 [권한 체크]', {
-            userRole: req.user.role,
-            isAdmin,
-            isOwner,
-            isCEO,
-            isSameCompany,
-            userBizNum: req.user.bizNum
-        });
+        const isOwner = post.uid === req.user.uid;
+        const isCEO = req.user.role === 'owner';
+        const isSameCompany = post.authorBizNum === req.user.bizNum;
 
         if (!isAdmin && !isOwner && !isCEO && !isSameCompany) {
             return res.status(403).json({ message: '접근 권한이 없습니다.' });
         }
+
+        // 프론트 호환성을 위해 authorUid 추가
+        post.authorUid = post.uid;
 
         res.json(post);
     } catch (error) {
