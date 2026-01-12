@@ -68,7 +68,12 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
         res.json({ companies });
     } catch (error) {
         console.error('회사 목록 조회 에러:', error);
-        res.status(500).json({ error: 'DatabaseError', message: '회사 목록을 불러올 수 없습니다.' });
+        res.status(500).json({
+            error: 'DatabaseError',
+            message: '회사 목록을 불러올 수 없습니다.',
+            detail: error.message,
+            sql: error.sql || null
+        });
     }
 });
 
