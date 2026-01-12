@@ -19,7 +19,12 @@ function parseDepartments(departmentsStr) {
 // 현재 사용자 정보 조회
 router.get('/me', authenticateToken, async (req, res) => {
     try {
-        const [user] = await query('SELECT * FROM users WHERE uid = ?', [req.user.uid]);
+        // Explicitly select columns to avoid SELECT * issues and removed 'useApproval'
+        const [user] = await query(
+            `SELECT uid, email, company_name, representative_name, biz_num, company_phone, manager_name, phone, department, departments, role, plan, qa_used_count, phone_used_count, custom_qa_limit, custom_phone_limit, created_at, agreed_at
+             FROM users WHERE uid = ?`, 
+            [req.user.uid]
+        );
 
         if (!user) {
             return res.status(404).json({
@@ -28,19 +33,18 @@ router.get('/me', authenticateToken, async (req, res) => {
             });
         }
 
-        // ✅ 멀티테넌트: 직원(manager, user, staff)은 owner의 플랜과 사용량, 승인설정 정보를 사용
+        // ✅ 멀티테넌트: 직원(manager, user, staff)은 owner의 플랜과 사용량 정보를 사용
         let companySettings = {
             plan: user.plan,
             qaUsedCount: user.qa_used_count,
             phoneUsedCount: user.phone_used_count,
             customQaLimit: user.custom_qa_limit,
-            customPhoneLimit: user.custom_phone_limit,
-            useApproval: user.useApproval
+            customPhoneLimit: user.custom_phone_limit
         };
 
         if (['manager', 'user', 'staff'].includes(user.role) && user.biz_num) {
             const [owner] = await query(
-                'SELECT plan, qa_used_count, phone_used_count, custom_qa_limit, custom_phone_limit, useApproval FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1',
+                'SELECT plan, qa_used_count, phone_used_count, custom_qa_limit, custom_phone_limit FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1',
                 [user.biz_num]
             );
 
@@ -50,10 +54,9 @@ router.get('/me', authenticateToken, async (req, res) => {
                     qaUsedCount: owner.qa_used_count,
                     phoneUsedCount: owner.phone_used_count,
                     customQaLimit: owner.custom_qa_limit,
-                    customPhoneLimit: owner.custom_phone_limit,
-                    useApproval: owner.useApproval
+                    customPhoneLimit: owner.custom_phone_limit
                 };
-                console.log(`👥 직원(${user.uid})에게 owner 플랜/설정 정보 제공: plan=${owner.plan}, useApproval=${owner.useApproval}`);
+                console.log(`👥 직원(${user.uid})에게 owner 플랜/설정 정보 제공: plan=${owner.plan}`);
             }
         }
 
@@ -74,7 +77,6 @@ router.get('/me', authenticateToken, async (req, res) => {
             phoneUsedCount: companySettings.phoneUsedCount,
             customQaLimit: companySettings.customQaLimit,
             customPhoneLimit: companySettings.customPhoneLimit,
-            useApproval: companySettings.useApproval,
             createdAt: user.created_at,
             agreedAt: user.agreed_at
         });
@@ -82,7 +84,9 @@ router.get('/me', authenticateToken, async (req, res) => {
         console.error('사용자 정보 조회 오류:', error);
         res.status(500).json({
             error: 'Failed to fetch user',
-            message: '사용자 정보를 가져오는 중 오류가 발생했습니다.'
+            message: '사용자 정보를 가져오는 중 오류가 발생했습니다.',
+            detail: error.message, // Add detail for debugging
+            sql: error.sql || null
         });
     }
 });
