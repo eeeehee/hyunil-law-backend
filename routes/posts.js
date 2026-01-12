@@ -12,12 +12,12 @@ router.use(authenticateToken);
 router.get('/counts', async (req, res) => {
     try {
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
-        const companyName = req.user.companyName;
+        const bizNum = req.user.bizNum;
 
-        if (!isAdmin && !companyName) {
+        if (!isAdmin && !bizNum) {
             return res.status(400).json({
-                error: 'companyName missing in token',
-                message: '사용자 회사명(companyName) 정보가 없습니다.'
+                error: 'bizNum missing in token',
+                message: '사용자 사업자번호(bizNum) 정보가 없습니다.'
             });
         }
 
@@ -44,10 +44,10 @@ router.get('/counts', async (req, res) => {
         const params = [...EXCLUDED_CATEGORIES];
 
         if (!isAdmin) {
-            sql += ' AND companyName = ?';
-            params.push(companyName);
+            sql += ' AND bizNum = ?';
+            params.push(bizNum);
         }
-const [row] = await query(sql, params);
+        const [row] = await query(sql, params);
         res.json({
             pendingCount: Number(row?.pendingCount ?? 0),
             doneCount: Number(row?.doneCount ?? 0),
@@ -64,21 +64,21 @@ router.get('/', async (req, res) => {
     try {
         const { category, status, search, department, limit = 50, offset = 0 } = req.query;
 
+        // uid AS authorUid, bizNum 기반으로 조회 (프론트 호환성 유지)
         let sql = `
-            SELECT p.id, p.docId, p.authorUid, p.companyName, p.category, p.title, p.content,
-                   p.fileUrls, p.status, p.createdAt, p.updatedAt,
-                   COALESCE(p.answer, p.reply) AS answer,
-                   COALESCE(p.answeredAt, p.repliedAt) AS answeredAt,
+            SELECT p.id, p.docId, p.uid AS authorUid, p.bizNum, p.category, p.title, p.content,
+                   p.department, p.status, p.createdAt, p.updatedAt,
+                   p.answer,
+                   p.answeredAt,
                    p.answeredBy,
-                   p.quotedPrice, p.quotedAt, p.rejectReason,
-                   p.previousStatus,
+                   u.company_name AS companyName,
                    u.company_name AS userCompanyName,
                    u.manager_name AS userManagerName,
                    u.department AS userDepartment,
                    u.biz_num AS authorBizNum,
                    u.plan AS userPlan
             FROM posts p
-            LEFT JOIN users u ON p.authorUid = u.uid
+            LEFT JOIN users u ON p.uid = u.uid
             WHERE 1=1
         `;
         const params = [];
@@ -86,14 +86,14 @@ router.get('/', async (req, res) => {
         // 멀티테넌트 분리: master/admin/general_manager/lawyer 를 제외한 모든 계정은 자기 회사 것만
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
         if (!isAdmin) {
-            if (!req.user.companyName) {
+            if (!req.user.bizNum) {
                 return res.status(400).json({
-                    error: 'companyName missing in token',
-                    message: '사용자 회사명(companyName) 정보가 없습니다.'
+                    error: 'bizNum missing in token',
+                    message: '사용자 사업자번호(bizNum) 정보가 없습니다.'
                 });
             }
-            sql += ` AND (p.companyName = ? OR u.company_name = ?)`;
-            params.push(req.user.companyName, req.user.companyName);
+            sql += ` AND (p.bizNum = ? OR u.biz_num = ?)`;
+            params.push(req.user.bizNum, req.user.bizNum);
         }
 
         if (category) {
@@ -127,8 +127,8 @@ router.get('/', async (req, res) => {
         }
 
         if (department) {
-            sql += ` AND u.department = ?`;
-            params.push(department);
+            sql += ` AND (p.department = ? OR u.department = ?)`;
+            params.push(department, department);
         }
 
         sql += ` ORDER BY p.createdAt DESC LIMIT ? OFFSET ?`;
@@ -160,13 +160,12 @@ router.get('/', async (req, res) => {
 router.get('/:docId', async (req, res) => {
     try {
         const [post] = await query(
-            `SELECT p.id, p.docId, p.authorUid, p.companyName, p.category, p.title, p.content,
-                    p.fileUrls, p.status, p.createdAt, p.updatedAt,
-                    COALESCE(p.answer, p.reply) AS answer,
-                    COALESCE(p.answeredAt, p.repliedAt) AS answeredAt,
+            `SELECT p.id, p.docId, p.uid AS authorUid, p.bizNum, p.category, p.title, p.content,
+                    p.department, p.status, p.createdAt, p.updatedAt,
+                    p.answer,
+                    p.answeredAt,
                     p.answeredBy,
-                    p.quotedPrice, p.quotedAt, p.rejectReason,
-                    p.previousStatus,
+                    u.company_name AS companyName,
                     u.company_name AS userCompanyName,
                     u.manager_name AS userManagerName,
                     u.department AS userDepartment,
@@ -174,7 +173,7 @@ router.get('/:docId', async (req, res) => {
                     u.biz_num AS authorBizNum,
                     u.plan AS userPlan
              FROM posts p
-             LEFT JOIN users u ON p.authorUid = u.uid
+             LEFT JOIN users u ON p.uid = u.uid
              WHERE p.docId = ?`,
             [req.params.docId]
         );
@@ -193,15 +192,15 @@ router.get('/:docId', async (req, res) => {
             답변자: post.answeredBy || 'null',
             answeredAt: post.answeredAt || 'null',
             authorUid: post.authorUid,
-            companyName: post.companyName,
-            userCompanyName: post.userCompanyName
+            bizNum: post.bizNum,
+            companyName: post.companyName
         });
 
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
         const isOwner = post.authorUid === req.user.uid;
         const isCEO = req.user.role === 'owner'; // CEO는 자기 회사 모든 글 조회 가능
-        const isSameCompany = (post.companyName === req.user.companyName) ||
-                              (post.userCompanyName === req.user.companyName);
+        const isSameCompany = (post.bizNum === req.user.bizNum) ||
+                              (post.authorBizNum === req.user.bizNum);
 
         console.log('🔐 [권한 체크]', {
             userRole: req.user.role,
@@ -209,7 +208,7 @@ router.get('/:docId', async (req, res) => {
             isOwner,
             isCEO,
             isSameCompany,
-            userCompanyName: req.user.companyName
+            userBizNum: req.user.bizNum
         });
 
         if (!isAdmin && !isOwner && !isCEO && !isSameCompany) {
@@ -225,8 +224,6 @@ router.get('/:docId', async (req, res) => {
 
 import { createPost } from '../utils/post_service.js';
 
-// ... (keep the rest of the file as is until the POST / endpoint)
-
 // 게시글 생성
 router.post('/', async (req, res) => {
     try {
@@ -238,13 +235,10 @@ router.post('/', async (req, res) => {
     }
 });
 
-// ... (the rest of the file)
-
-
 // 게시글 수정
 router.put('/:docId', async (req, res) => {
     try {
-        const { title, content, status, answer, answeredAt, quotedPrice, quotedAt, rejectReason, previousStatus } = req.body;
+        const { title, content, status, answer, answeredAt } = req.body;
         const { docId } = req.params;
 
         const [post] = await query('SELECT * FROM posts WHERE docId = ?', [docId]);
@@ -254,7 +248,7 @@ router.put('/:docId', async (req, res) => {
         }
 
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
-        const isOwner = post.authorUid === req.user.uid;
+        const isOwner = post.uid === req.user.uid;
 
         if (!isAdmin && !isOwner) {
             return res.status(403).json({ message: '수정 권한이 없습니다.' });
@@ -278,36 +272,9 @@ router.put('/:docId', async (req, res) => {
             params.push(status);
         }
 
-        // 견적 금액 (관리자만)
-        if (quotedPrice !== undefined && isAdmin) {
-            updates.push('quotedPrice = ?');
-            params.push(quotedPrice);
-        }
-
-        // 견적 발송 일시 (관리자만)
-        if (quotedAt !== undefined && isAdmin) {
-            updates.push('quotedAt = ?');
-            params.push(new Date(quotedAt));
-        }
-
-        // 견적 거절 사유 (사용자도 가능)
-        if (rejectReason !== undefined) {
-            updates.push('rejectReason = ?');
-            params.push(rejectReason);
-        }
-
-        // 이전 상태 저장 (관리자만)
-        if (previousStatus !== undefined && isAdmin) {
-            updates.push('previousStatus = ?');
-            params.push(previousStatus);
-        }
-
         // 관리자가 답변을 작성할 때
         if (answer !== undefined && isAdmin) {
-            // answer와 reply 둘 다 저장 (하위 호환성)
             updates.push('answer = ?');
-            params.push(answer);
-            updates.push('reply = ?');
             params.push(answer);
 
             // answeredBy에 관리자의 manager_name 저장 (답변자 정보)
@@ -321,11 +288,8 @@ router.put('/:docId', async (req, res) => {
             if (answeredAt) {
                 updates.push('answeredAt = ?');
                 params.push(new Date(answeredAt));
-                updates.push('repliedAt = ?');
-                params.push(new Date(answeredAt));
             } else {
                 updates.push('answeredAt = NOW()');
-                updates.push('repliedAt = NOW()');
             }
         }
 
@@ -363,7 +327,7 @@ router.delete('/:docId', async (req, res) => {
         }
 
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
-        const isOwner = post.authorUid === req.user.uid;
+        const isOwner = post.uid === req.user.uid;
 
         if (!isAdmin && !isOwner) {
             return res.status(403).json({ message: '삭제 권한이 없습니다.' });
@@ -376,8 +340,8 @@ router.delete('/:docId', async (req, res) => {
 
         if (shouldDecrementQa || shouldDecrementPhone) {
             // 게시글 작성자 정보 조회
-            const [authorInfo] = await query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [post.authorUid]);
-            let targetUidForUsage = post.authorUid;
+            const [authorInfo] = await query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [post.uid]);
+            let targetUidForUsage = post.uid;
 
             // 일반 직원(manager, user, staff)이 작성한 경우 CEO의 횟수를 복구
             if (authorInfo && ['manager', 'user', 'staff'].includes(authorInfo.role)) {

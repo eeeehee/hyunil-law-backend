@@ -7,11 +7,8 @@ export async function createPost(postData, user, connection = null) {
     const db = connection || { query };
 
     // ✅ 필드 분해 및 기본값 설정
-    const { category, title, content, fileUrls, status } = postData;
+    const { category, title, content, status } = postData;
     const department = postData.department || user.department || '전사';
-    const authorName = postData.authorName || user.manager_name || user.email;
-    const contact = postData.contact || user.phone || null;
-
 
     if (!category || !title || !content) {
         throw new Error('필수 항목(category, title, content)을 입력해주세요.');
@@ -20,10 +17,8 @@ export async function createPost(postData, user, connection = null) {
     const docId = uuidv4();
     const now = new Date();
 
-    const fileUrlsJson = fileUrls ? JSON.stringify(fileUrls) : null;
-
-    let authorUidToSave = user?.uid || null;
-    let companyNameToSave = user?.companyName || null;
+    let uidToSave = user?.uid || null;
+    let bizNumToSave = user?.bizNum || postData.bizNum || null;
 
     const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(user?.role);
 
@@ -31,10 +26,10 @@ export async function createPost(postData, user, connection = null) {
     if (isAdmin && category === 'phone_log') {
         const targetBizNum = postData.bizNum || postData.authorBizNum || null;
         if (targetBizNum) {
-            const [targetUser] = await db.query('SELECT uid, company_name FROM users WHERE biz_num = ? LIMIT 1', [targetBizNum]);
+            const [targetUser] = await db.query('SELECT uid, biz_num FROM users WHERE biz_num = ? LIMIT 1', [targetBizNum]);
             if (targetUser) {
-                authorUidToSave = targetUser.uid;
-                companyNameToSave = targetUser.company_name;
+                uidToSave = targetUser.uid;
+                bizNumToSave = targetUser.biz_num;
             }
         }
     }
@@ -54,17 +49,15 @@ export async function createPost(postData, user, connection = null) {
     const excludeCategories = ['phone_log', 'payment_request', 'plan_change', 'payment_method', 'member_req', 'extra_usage_quote', 'member_req_internal', 'member_req_admin'];
     const shouldIncrementQa = !excludeCategories.includes(category) && category !== 'phone_request';
     const shouldIncrementPhone = category === 'phone_request';
-    
-    if ((shouldIncrementQa || shouldIncrementPhone) && authorUidToSave) {
-        const [authorInfo] = await db.query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [authorUidToSave]);
+
+    if ((shouldIncrementQa || shouldIncrementPhone) && uidToSave) {
+        const [authorInfo] = await db.query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [uidToSave]);
 
         if (!authorInfo) {
-            // This case should ideally not happen if JWTs are managed correctly,
-            // but as a safeguard, prevent writing a post for a non-existent user.
-            throw new Error(`자문 요청자(uid: ${authorUidToSave})가 사용자 테이블에 존재하지 않습니다.`);
+            throw new Error(`자문 요청자(uid: ${uidToSave})가 사용자 테이블에 존재하지 않습니다.`);
         }
 
-        let targetUidForUsage = authorUidToSave;
+        let targetUidForUsage = uidToSave;
 
         if (authorInfo && ['manager', 'user', 'staff'].includes(authorInfo.role)) {
             const [ownerInfo] = await db.query('SELECT uid FROM users WHERE biz_num = ? AND role = "owner" LIMIT 1', [authorInfo.biz_num]);
@@ -80,10 +73,11 @@ export async function createPost(postData, user, connection = null) {
         }
     }
 
+    // 기존 DB 스키마에 맞는 INSERT (uid, bizNum, department 사용)
     await db.query(
-        `INSERT INTO posts (docId, category, title, content, fileUrls, authorUid, companyName, status, answeredBy, answeredAt, createdAt, updatedAt, authorName, contact, department)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [docId, category, title, content, fileUrlsJson, authorUidToSave, companyNameToSave, statusToSave, answeredByToSave, answeredAtToSave, now, now, authorName, contact, department]
+        `INSERT INTO posts (docId, uid, bizNum, category, department, title, content, status, answeredBy, answeredAt, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [docId, uidToSave, bizNumToSave, category, department, title, content, statusToSave, answeredByToSave, answeredAtToSave, now, now]
     );
 
     const [newPost] = await db.query('SELECT * FROM posts WHERE docId = ?', [docId]);
