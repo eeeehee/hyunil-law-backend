@@ -30,6 +30,7 @@ router.get('/counts', async (req, res) => {
                 SELECT
                   SUM(CASE WHEN p.status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress', 'Pending') THEN 1 ELSE 0 END) AS pendingCount,
                   SUM(CASE WHEN p.status IN ('completed', 'done', 'answered', 'resolved', 'Completed') THEN 1 ELSE 0 END) AS doneCount,
+                  COUNT(p.docId) AS totalCount
                 FROM posts p
                 INNER JOIN users u ON p.uid = u.uid
                 WHERE u.biz_num = (SELECT biz_num FROM users WHERE uid = ? LIMIT 1)
