@@ -22,7 +22,7 @@ router.get('/counts', async (req, res) => {
                   SUM(CASE WHEN status IN ('completed', 'done', 'answered', 'resolved', 'Completed') THEN 1 ELSE 0 END) AS doneCount,
                   COUNT(*) AS totalCount
                 FROM posts
-            `;
+                WHERE category NOT IN ('extra_usage_quote', 'payment_request', 'plan_change', 'payment_method', 'member_req', 'member_req_internal', 'member_req_admin', 'phone_log')            `;
             params = [];
         } else {
             // 일반 사용자는 같은 회사 기준 조회
@@ -30,10 +30,10 @@ router.get('/counts', async (req, res) => {
                 SELECT
                   SUM(CASE WHEN p.status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress', 'Pending') THEN 1 ELSE 0 END) AS pendingCount,
                   SUM(CASE WHEN p.status IN ('completed', 'done', 'answered', 'resolved', 'Completed') THEN 1 ELSE 0 END) AS doneCount,
-                  COUNT(p.docId) AS totalCount
                 FROM posts p
                 INNER JOIN users u ON p.uid = u.uid
                 WHERE u.biz_num = (SELECT biz_num FROM users WHERE uid = ? LIMIT 1)
+                  AND p.category NOT IN ('extra_usage_quote', 'payment_request', 'plan_change', 'payment_method', 'member_req', 'member_req_internal', 'member_req_admin', 'phone_log')
             `;
             params = [userUid];
         }
