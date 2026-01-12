@@ -25,16 +25,15 @@ router.get('/counts', async (req, res) => {
             `;
             params = [];
         } else {
-            // 일반 사용자는 같은 회사 기준 조회 - users 테이블 JOIN
+            // 일반 사용자는 같은 회사 기준 조회
             sql = `
                 SELECT
                   SUM(CASE WHEN p.status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress', 'Pending') THEN 1 ELSE 0 END) AS pendingCount,
                   SUM(CASE WHEN p.status IN ('completed', 'done', 'answered', 'resolved', 'Completed') THEN 1 ELSE 0 END) AS doneCount,
-                  COUNT(*) AS totalCount
+                  COUNT(p.docId) AS totalCount
                 FROM posts p
                 INNER JOIN users u ON p.uid = u.uid
-                INNER JOIN users me ON u.biz_num = me.biz_num
-                WHERE me.uid = ?
+                WHERE u.biz_num = (SELECT biz_num FROM users WHERE uid = ? LIMIT 1)
             `;
             params = [userUid];
         }
@@ -89,8 +88,7 @@ router.get('/', async (req, res) => {
                        u.plan AS userPlan
                 FROM posts p
                 INNER JOIN users u ON p.uid = u.uid
-                INNER JOIN users me ON u.biz_num = me.biz_num
-                WHERE me.uid = ?
+                WHERE u.biz_num = (SELECT biz_num FROM users WHERE uid = ? LIMIT 1)
             `;
             params = [req.user.uid];
         }
