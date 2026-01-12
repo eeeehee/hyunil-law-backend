@@ -107,14 +107,22 @@ router.post('/employees/batch', authenticateToken, requireRole('master', 'admin'
         // IN 절로 한 번에 모든 직원 조회
         const placeholders = bizNums.map(() => '?').join(', ');
         const rows = await query(
-            `SELECT uid, email, manager_name, department, role, phone, created_at, biz_num
+            `SELECT uid, email, manager_name, department, role, phone, created_at, plan, biz_num
              FROM users
              WHERE biz_num IN (${placeholders}) AND role IN ('owner', 'manager', 'user', 'staff')
              ORDER BY biz_num, created_at DESC`,
             bizNums
         );
 
-        // 사업자번호별로 그룹핑
+        // 사업자번호별로 오너 플랜 맵 생성
+        const ownerPlans = {};
+        rows.forEach(row => {
+            if (row.role === 'owner') {
+                ownerPlans[row.biz_num] = row.plan;
+            }
+        });
+
+        // 사업자번호별로 직원 목록 그룹핑
         const employeesByBizNum = {};
         rows.forEach(row => {
             if (!employeesByBizNum[row.biz_num]) {
@@ -127,11 +135,12 @@ router.post('/employees/batch', authenticateToken, requireRole('master', 'admin'
                 department: row.department,
                 role: row.role,
                 phone: row.phone,
-                createdAt: row.created_at
+                createdAt: row.created_at,
+                plan: row.plan
             });
         });
 
-        res.json({ employeesByBizNum });
+        res.json({ employeesByBizNum, ownerPlans });
     } catch (error) {
         console.error('일괄 직원 목록 조회 에러:', error);
         res.status(500).json({ error: 'DatabaseError', message: '직원 목록을 불러올 수 없습니다.' });
