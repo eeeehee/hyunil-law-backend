@@ -69,7 +69,7 @@ router.get('/', async (req, res) => {
         if (isAdmin) {
             // 관리자: 전체 조회
             sql = `
-                SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt, p.rejectReason,
+                SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt, p.rejectReason, p.quotedAt AS quotedAt,
                        u.company_name AS companyName,
                        u.manager_name AS userManagerName,
                        u.department AS userDepartment,
@@ -84,7 +84,7 @@ router.get('/', async (req, res) => {
         } else {
             // 일반 사용자: 같은 회사만
             sql = `
-                SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt, p.rejectReason,
+                SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt, p.rejectReason, p.quotedAt,
                        u.company_name AS companyName,
                        u.manager_name AS userManagerName,
                        u.department AS userDepartment,
@@ -148,7 +148,7 @@ router.get('/', async (req, res) => {
 router.get('/:docId', async (req, res) => {
     try {
         const [post] = await query(
-            `SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt, p.rejectReason,
+            `SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt, p.rejectReason, p.quotedAt,
                     u.company_name AS companyName,
                     u.manager_name AS userManagerName,
                     u.email AS userEmail,
@@ -200,7 +200,7 @@ router.post('/', async (req, res) => {
 // 게시글 수정
 router.put('/:docId', async (req, res) => {
     try {
-        const { title, content, status, answer, answeredAt, quotedPrice, rejectReason } = req.body;
+        const { title, content, status, answer, answeredAt, quotedPrice, rejectReason, quotedAt } = req.body;
         const { docId } = req.params;
 
         const [post] = await query('SELECT * FROM posts WHERE docId = ?', [docId]);
@@ -243,6 +243,12 @@ router.put('/:docId', async (req, res) => {
         if (rejectReason !== undefined) {
             updates.push('rejectReason = ?');
             params.push(rejectReason);
+        }
+
+        // 견적 발송 일시 저장 로직 추가
+        if (quotedAt !== undefined && isAdmin) {
+            updates.push('quotedAt = ?');
+            params.push(quotedAt);
         }
 
         // 관리자가 답변을 작성할 때
