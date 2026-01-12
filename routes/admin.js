@@ -19,9 +19,9 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
         let sql = `
             SELECT
                 u1.uid, u1.email, u1.company_name, u1.manager_name, u1.biz_num, u1.phone,
-                u1.role, u1.plan, u1.isActive, u1.qaUsedCount, u1.phoneUsedCount,
-                u1.customQaLimit, u1.customPhoneLimit, u1.customLimit,
-                u1.contractStartDate, u1.contractEndDate, u1.autoRenewal,
+                u1.role, u1.plan, u1.isActive, u1.qa_used_count, u1.phone_used_count,
+                u1.custom_qa_limit, u1.custom_phone_limit, u1.customLimit,
+                u1.contractStartDate, u1.contract_end_date, u1.autoRenewal,
                 u1.created_at, u1.lastLoginAt, u1.logs,
                 COUNT(u2.uid) as employeeCount
             FROM users u1
@@ -53,13 +53,13 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
             role: row.role,
             plan: row.plan,
             isActive: row.isActive,
-            qaUsedCount: row.qaUsedCount,
-            phoneUsedCount: row.phoneUsedCount,
-            customQaLimit: row.customQaLimit,
-            customPhoneLimit: row.customPhoneLimit,
+            qaUsedCount: row.qa_used_count,
+            phoneUsedCount: row.phone_used_count,
+            customQaLimit: row.custom_qa_limit,
+            customPhoneLimit: row.custom_phone_limit,
             customLimit: row.customLimit,
             contractStartDate: row.contractStartDate,
-            contractEndDate: row.contractEndDate,
+            contractEndDate: row.contract_end_date,
             autoRenewal: row.autoRenewal,
             createdAt: row.created_at,
             lastLoginAt: row.lastLoginAt,
