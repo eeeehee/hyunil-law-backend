@@ -263,6 +263,19 @@ router.put('/:id/approve', authenticateToken, requireAdminOrCEO, async (req, res
             return res.status(404).json({ message: '요청한 사용자를 찾을 수 없습니다.' });
         }
 
+        // post_service.createPost가 camelCase를 기대하므로 객체 변환
+        const userForPost = {
+            uid: requester.uid,
+            email: requester.email,
+            role: requester.role,
+            bizNum: requester.biz_num,
+            companyName: requester.company_name,
+            manager_name: requester.manager_name,
+            department: requester.department,
+            plan: requester.plan,
+            phone: requester.phone
+        };
+
         if (request.requestType === '부서변경') {
             // 부서 변경 적용
             await query(`
@@ -271,21 +284,21 @@ router.put('/:id/approve', authenticateToken, requireAdminOrCEO, async (req, res
                 WHERE uid = ?
             `, [requestData.toDepartment, request.uid]);
         } else if (request.requestType === '자문요청') {
-            await createPost({ ...requestData }, requester);
+            await createPost({ ...requestData }, userForPost);
         } else if (request.requestType === '전화상담') {
-            await createPost({ ...requestData }, requester);
+            await createPost({ ...requestData }, userForPost);
         } else if (request.requestType === '추가이용문의') {
             await createPost({ 
                 category: 'extra_usage_quote',
                 status: 'pending',
                 ...requestData 
-            }, requester);
+            }, userForPost);
         } else if (request.requestType === '요금제변경신청') {
             await createPost({ 
                 category: 'plan_change',
                 status: 'pending',
                 ...requestData 
-            }, requester);
+            }, userForPost);
         }
         // 향후 다른 요청 유형 추가 가능
 
@@ -437,6 +450,19 @@ router.put('/bulk-approve', authenticateToken, requireAdminOrCEO, async (req, re
             const [requester] = await query('SELECT * FROM users WHERE uid = ?', [request.uid]);
 
             if (requester) {
+                // post_service.createPost가 camelCase를 기대하므로 객체 변환
+                const userForPost = {
+                    uid: requester.uid,
+                    email: requester.email,
+                    role: requester.role,
+                    bizNum: requester.biz_num,
+                    companyName: requester.company_name,
+                    manager_name: requester.manager_name,
+                    department: requester.department,
+                    plan: requester.plan,
+                    phone: requester.phone
+                };
+
                 if (request.requestType === '부서변경') {
                     await query(`UPDATE users SET department = ? WHERE uid = ?`, [requestData.toDepartment, request.uid]);
                 } else if (['자문요청', '전화상담', '추가이용문의', '요금제변경신청'].includes(request.requestType)) {
@@ -450,7 +476,7 @@ router.put('/bulk-approve', authenticateToken, requireAdminOrCEO, async (req, re
                          category: postCategoryMap[request.requestType],
                          status: 'pending',
                          ...requestData 
-                     }, requester);
+                     }, userForPost);
                 }
             }
             successCount++;

@@ -56,6 +56,13 @@ export async function createPost(postData, user, connection = null) {
     
     if ((shouldIncrementQa || shouldIncrementPhone) && authorUidToSave) {
         const [authorInfo] = await db.query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [authorUidToSave]);
+
+        if (!authorInfo) {
+            // This case should ideally not happen if JWTs are managed correctly,
+            // but as a safeguard, prevent writing a post for a non-existent user.
+            throw new Error(`자문 요청자(uid: ${authorUidToSave})가 사용자 테이블에 존재하지 않습니다.`);
+        }
+
         let targetUidForUsage = authorUidToSave;
 
         if (authorInfo && ['manager', 'user', 'staff'].includes(authorInfo.role)) {
