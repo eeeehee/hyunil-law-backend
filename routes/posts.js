@@ -200,7 +200,7 @@ router.post('/', async (req, res) => {
 // 게시글 수정
 router.put('/:docId', async (req, res) => {
     try {
-        const { title, content, status, answer, answeredAt } = req.body;
+        const { title, content, status, answer, answeredAt, quotedPrice } = req.body;
         const { docId } = req.params;
 
         const [post] = await query('SELECT * FROM posts WHERE docId = ?', [docId]);
@@ -232,6 +232,11 @@ router.put('/:docId', async (req, res) => {
         if (status !== undefined) {
             updates.push('status = ?');
             params.push(status);
+        }
+        
+        if (quotedPrice !== undefined && isAdmin) {
+            updates.push('quoted_price = ?');
+            params.push(quotedPrice);
         }
 
         // 관리자가 답변을 작성할 때
