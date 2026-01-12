@@ -71,6 +71,7 @@ router.get('/', async (req, res) => {
                 SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt,
                        u.company_name AS companyName,
                        u.manager_name AS userManagerName,
+                       u.department AS userDepartment,
                        u.biz_num AS authorBizNum,
                        u.plan AS userPlan
                 FROM posts p
@@ -84,6 +85,7 @@ router.get('/', async (req, res) => {
                 SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt,
                        u.company_name AS companyName,
                        u.manager_name AS userManagerName,
+                       u.department AS userDepartment,
                        u.biz_num AS authorBizNum,
                        u.plan AS userPlan
                 FROM posts p
