@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
         if (isAdmin) {
             // 관리자: 전체 조회
             sql = `
-                SELECT p.*,
+                SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt,
                        u.company_name AS companyName,
                        u.manager_name AS userManagerName,
                        u.biz_num AS authorBizNum,
@@ -81,7 +81,7 @@ router.get('/', async (req, res) => {
         } else {
             // 일반 사용자: 같은 회사만
             sql = `
-                SELECT p.*,
+                SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt,
                        u.company_name AS companyName,
                        u.manager_name AS userManagerName,
                        u.biz_num AS authorBizNum,
