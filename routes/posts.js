@@ -66,8 +66,8 @@ router.get('/', async (req, res) => {
 
         // uid AS authorUid, bizNum 기반으로 조회 (프론트 호환성 유지)
         let sql = `
-            SELECT p.id, p.docId, p.uid AS authorUid, p.bizNum, p.category, p.title, p.content,
-                   p.department, p.status, p.createdAt, p.updatedAt,
+            SELECT p.docId, p.uid AS authorUid, p.bizNum, p.category, p.title, p.content,
+                   p.department, p.status, p.priority, p.createdAt, p.updatedAt,
                    p.answer,
                    p.answeredAt,
                    p.answeredBy,
@@ -160,8 +160,8 @@ router.get('/', async (req, res) => {
 router.get('/:docId', async (req, res) => {
     try {
         const [post] = await query(
-            `SELECT p.id, p.docId, p.uid AS authorUid, p.bizNum, p.category, p.title, p.content,
-                    p.department, p.status, p.createdAt, p.updatedAt,
+            `SELECT p.docId, p.uid AS authorUid, p.bizNum, p.category, p.title, p.content,
+                    p.department, p.status, p.priority, p.createdAt, p.updatedAt,
                     p.answer,
                     p.answeredAt,
                     p.answeredBy,
