@@ -290,7 +290,11 @@ router.put('/:docId', async (req, res) => {
 
     } catch (error) {
         console.error('게시글 수정 에러:', error);
-        res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+        res.status(500).json({ 
+            message: '서버 오류가 발생했습니다.',
+            detail: error.message,
+            sql: error.sql || null
+        });
     }
 });
 
