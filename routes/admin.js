@@ -60,8 +60,16 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
     try {
         const { bizNum } = req.params;
 
+        // 1. Get the owner's plan for this bizNum
+        const [owner] = await query(
+            `SELECT plan FROM users WHERE biz_num = ? AND role = 'owner' LIMIT 1`,
+            [bizNum]
+        );
+        const companyPlan = owner ? owner.plan : 'none';
+
+        // 2. Get the employees (and their individual plans)
         const rows = await query(
-            `SELECT uid, email, manager_name, department, role, phone, created_at
+            `SELECT uid, email, manager_name, department, role, phone, created_at, plan
              FROM users
              WHERE biz_num = ? AND role IN ('owner', 'manager', 'user', 'staff')
              ORDER BY created_at DESC`,
@@ -75,10 +83,12 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
             department: row.department,
             role: row.role,
             phone: row.phone,
-            createdAt: row.created_at
+            createdAt: row.created_at,
+            plan: row.plan // individual employee's plan
         }));
-
-        res.json({ employees });
+        
+        // 3. Return both employees and the company's plan
+        res.json({ employees, companyPlan });
     } catch (error) {
         console.error('직원 목록 조회 에러:', error);
         res.status(500).json({ error: 'DatabaseError', message: '직원 목록을 불러올 수 없습니다.' });
