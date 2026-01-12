@@ -248,7 +248,9 @@ router.put('/:docId', async (req, res) => {
         // 견적 발송 일시 저장 로직 추가
         if (quotedAt !== undefined && isAdmin) {
             updates.push('quotedAt = ?');
-            params.push(quotedAt);
+            // ISO 8601 문자열을 MariaDB DATETIME 형식으로 변환
+            const formattedQuotedAt = new Date(quotedAt).toISOString().slice(0, 19).replace('T', ' ');
+            params.push(formattedQuotedAt);
         }
 
         // 관리자가 답변을 작성할 때
