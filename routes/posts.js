@@ -7,54 +7,41 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // 대시보드 카운트 (답변대기중/답변완료)
-// - admin/general_manager/lawyer 는 전체
-// - 그 외(CEO 포함)는 회사 단위로 집계 (uid 기반 JOIN)
 router.get('/counts', async (req, res) => {
     try {
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
-        const userBizNum = req.user.bizNum;
-
-        // ❌ 대시보드 집계에서 제외할 카테고리(자문이 아닌 요청들)
-        const EXCLUDED_CATEGORIES = [
-            'extra_usage_quote', // 추가 이용/견적 요청
-            'payment_request',
-            'plan_change',
-            'payment_method',
-            'member_req',
-            'member_req_internal', // 부서변경 요청 (CEO 승인)
-            'member_req_admin', // 회원 정보 변경 요청 (관리자 승인)
-            'phone_log'
-        ];
+        const userUid = req.user.uid;
 
         let sql, params;
 
         if (isAdmin) {
-            // 관리자는 전체 조회
+            // 관리자는 전체 조회 (가장 단순한 쿼리)
             sql = `
                 SELECT
-                  SUM(CASE WHEN status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress') THEN 1 ELSE 0 END) AS pendingCount,
+                  SUM(CASE WHEN status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress', 'Pending') THEN 1 ELSE 0 END) AS pendingCount,
                   SUM(CASE WHEN status IN ('completed', 'done', 'answered', 'resolved', 'Completed') THEN 1 ELSE 0 END) AS doneCount,
                   COUNT(*) AS totalCount
                 FROM posts
-                WHERE category NOT IN (${EXCLUDED_CATEGORIES.map(() => '?').join(', ')})
             `;
-            params = [...EXCLUDED_CATEGORIES];
+            params = [];
         } else {
-            // 일반 사용자는 같은 회사(biz_num) 기준 조회 - users 테이블 JOIN
+            // 일반 사용자는 같은 회사 기준 조회 - users 테이블 JOIN
             sql = `
                 SELECT
-                  SUM(CASE WHEN p.status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress') THEN 1 ELSE 0 END) AS pendingCount,
+                  SUM(CASE WHEN p.status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress', 'Pending') THEN 1 ELSE 0 END) AS pendingCount,
                   SUM(CASE WHEN p.status IN ('completed', 'done', 'answered', 'resolved', 'Completed') THEN 1 ELSE 0 END) AS doneCount,
                   COUNT(*) AS totalCount
                 FROM posts p
-                LEFT JOIN users u ON p.uid = u.uid
-                WHERE p.category NOT IN (${EXCLUDED_CATEGORIES.map(() => '?').join(', ')})
-                  AND u.biz_num = ?
+                INNER JOIN users u ON p.uid = u.uid
+                INNER JOIN users me ON u.biz_num = me.biz_num
+                WHERE me.uid = ?
             `;
-            params = [...EXCLUDED_CATEGORIES, userBizNum];
+            params = [userUid];
         }
 
-        const [row] = await query(sql, params);
+        const rows = await query(sql, params);
+        const row = rows[0] || {};
+
         res.json({
             pendingCount: Number(row?.pendingCount ?? 0),
             doneCount: Number(row?.doneCount ?? 0),
@@ -62,7 +49,12 @@ router.get('/counts', async (req, res) => {
         });
     } catch (error) {
         console.error('게시글 카운트 조회 에러:', error);
-        res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+        // 상세 오류 메시지 반환
+        res.status(500).json({
+            message: '서버 오류가 발생했습니다.',
+            error: error.message,
+            sql: error.sql || null
+        });
     }
 });
 
