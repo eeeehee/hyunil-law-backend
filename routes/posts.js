@@ -8,18 +8,11 @@ router.use(authenticateToken);
 
 // 대시보드 카운트 (답변대기중/답변완료)
 // - admin/general_manager/lawyer 는 전체
-// - 그 외(CEO 포함)는 회사 단위로 집계
+// - 그 외(CEO 포함)는 회사 단위로 집계 (uid 기반 JOIN)
 router.get('/counts', async (req, res) => {
     try {
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
-        const bizNum = req.user.bizNum;
-
-        if (!isAdmin && !bizNum) {
-            return res.status(400).json({
-                error: 'bizNum missing in token',
-                message: '사용자 사업자번호(bizNum) 정보가 없습니다.'
-            });
-        }
+        const userBizNum = req.user.bizNum;
 
         // ❌ 대시보드 집계에서 제외할 카테고리(자문이 아닌 요청들)
         const EXCLUDED_CATEGORIES = [
@@ -33,20 +26,34 @@ router.get('/counts', async (req, res) => {
             'phone_log'
         ];
 
-        let sql = `
-            SELECT
-              SUM(status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress')) AS pendingCount,
-              SUM(status IN ('completed', 'done', 'answered', 'resolved', 'Completed')) AS doneCount,
-              COUNT(*) AS totalCount
-            FROM posts
-            WHERE category NOT IN (${EXCLUDED_CATEGORIES.map(() => '?').join(', ')})
-        `;
-        const params = [...EXCLUDED_CATEGORIES];
+        let sql, params;
 
-        if (!isAdmin) {
-            sql += ' AND bizNum = ?';
-            params.push(bizNum);
+        if (isAdmin) {
+            // 관리자는 전체 조회
+            sql = `
+                SELECT
+                  SUM(CASE WHEN status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress') THEN 1 ELSE 0 END) AS pendingCount,
+                  SUM(CASE WHEN status IN ('completed', 'done', 'answered', 'resolved', 'Completed') THEN 1 ELSE 0 END) AS doneCount,
+                  COUNT(*) AS totalCount
+                FROM posts
+                WHERE category NOT IN (${EXCLUDED_CATEGORIES.map(() => '?').join(', ')})
+            `;
+            params = [...EXCLUDED_CATEGORIES];
+        } else {
+            // 일반 사용자는 같은 회사(biz_num) 기준 조회 - users 테이블 JOIN
+            sql = `
+                SELECT
+                  SUM(CASE WHEN p.status IN ('pending', 'waiting', 'analyzing', 'processing', 'InProgress') THEN 1 ELSE 0 END) AS pendingCount,
+                  SUM(CASE WHEN p.status IN ('completed', 'done', 'answered', 'resolved', 'Completed') THEN 1 ELSE 0 END) AS doneCount,
+                  COUNT(*) AS totalCount
+                FROM posts p
+                LEFT JOIN users u ON p.uid = u.uid
+                WHERE p.category NOT IN (${EXCLUDED_CATEGORIES.map(() => '?').join(', ')})
+                  AND u.biz_num = ?
+            `;
+            params = [...EXCLUDED_CATEGORIES, userBizNum];
         }
+
         const [row] = await query(sql, params);
         res.json({
             pendingCount: Number(row?.pendingCount ?? 0),
@@ -64,9 +71,9 @@ router.get('/', async (req, res) => {
     try {
         const { category, status, search, department, limit = 50, offset = 0 } = req.query;
 
-        // uid AS authorUid, bizNum 기반으로 조회 (프론트 호환성 유지)
+        // uid 기반으로 조회, users 테이블에서 회사 정보 JOIN
         let sql = `
-            SELECT p.docId, p.uid AS authorUid, p.bizNum, p.category, p.title, p.content,
+            SELECT p.docId, p.uid AS authorUid, p.category, p.title, p.content,
                    p.department, p.status, p.priority, p.createdAt, p.updatedAt,
                    p.answer,
                    p.answeredAt,
@@ -75,6 +82,7 @@ router.get('/', async (req, res) => {
                    u.company_name AS userCompanyName,
                    u.manager_name AS userManagerName,
                    u.department AS userDepartment,
+                   u.biz_num AS bizNum,
                    u.biz_num AS authorBizNum,
                    u.plan AS userPlan
             FROM posts p
@@ -92,8 +100,8 @@ router.get('/', async (req, res) => {
                     message: '사용자 사업자번호(bizNum) 정보가 없습니다.'
                 });
             }
-            sql += ` AND (p.bizNum = ? OR u.biz_num = ?)`;
-            params.push(req.user.bizNum, req.user.bizNum);
+            sql += ` AND u.biz_num = ?`;
+            params.push(req.user.bizNum);
         }
 
         if (category) {
@@ -160,7 +168,7 @@ router.get('/', async (req, res) => {
 router.get('/:docId', async (req, res) => {
     try {
         const [post] = await query(
-            `SELECT p.docId, p.uid AS authorUid, p.bizNum, p.category, p.title, p.content,
+            `SELECT p.docId, p.uid AS authorUid, p.category, p.title, p.content,
                     p.department, p.status, p.priority, p.createdAt, p.updatedAt,
                     p.answer,
                     p.answeredAt,
@@ -170,6 +178,7 @@ router.get('/:docId', async (req, res) => {
                     u.manager_name AS userManagerName,
                     u.department AS userDepartment,
                     u.email AS userEmail,
+                    u.biz_num AS bizNum,
                     u.biz_num AS authorBizNum,
                     u.plan AS userPlan
              FROM posts p

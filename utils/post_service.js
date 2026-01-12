@@ -18,18 +18,16 @@ export async function createPost(postData, user, connection = null) {
     const now = new Date();
 
     let uidToSave = user?.uid || null;
-    let bizNumToSave = user?.bizNum || postData.bizNum || null;
 
     const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(user?.role);
 
-    // 관리자가 전화상담 기록 시 대상자 정보로 저자/회사를 덮어씀
+    // 관리자가 전화상담 기록 시 대상자 정보로 저자를 덮어씀
     if (isAdmin && category === 'phone_log') {
         const targetBizNum = postData.bizNum || postData.authorBizNum || null;
         if (targetBizNum) {
-            const [targetUser] = await db.query('SELECT uid, biz_num FROM users WHERE biz_num = ? LIMIT 1', [targetBizNum]);
+            const [targetUser] = await db.query('SELECT uid FROM users WHERE biz_num = ? LIMIT 1', [targetBizNum]);
             if (targetUser) {
                 uidToSave = targetUser.uid;
-                bizNumToSave = targetUser.biz_num;
             }
         }
     }
@@ -73,11 +71,11 @@ export async function createPost(postData, user, connection = null) {
         }
     }
 
-    // 기존 DB 스키마에 맞는 INSERT (uid, bizNum, department 사용)
+    // uid 기반 INSERT (bizNum은 users 테이블 JOIN으로 조회)
     await db.query(
-        `INSERT INTO posts (docId, uid, bizNum, category, department, title, content, status, answeredBy, answeredAt, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [docId, uidToSave, bizNumToSave, category, department, title, content, statusToSave, answeredByToSave, answeredAtToSave, now, now]
+        `INSERT INTO posts (docId, uid, category, department, title, content, status, answeredBy, answeredAt, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [docId, uidToSave, category, department, title, content, statusToSave, answeredByToSave, answeredAtToSave, now, now]
     );
 
     const [newPost] = await db.query('SELECT * FROM posts WHERE docId = ?', [docId]);
