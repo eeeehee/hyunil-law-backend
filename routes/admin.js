@@ -19,7 +19,7 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
         let sql = `
             SELECT
                 u1.uid, u1.email, u1.company_name, u1.manager_name, u1.biz_num, u1.phone,
-                u1.role, u1.plan, u1.isActive, u1.qa_used_count, u1.phone_used_count,
+                u1.role, u1.plan, u1.qa_used_count, u1.phone_used_count,
                 u1.custom_qa_limit, u1.custom_phone_limit, u1.customLimit,
                 u1.contractStartDate, u1.contract_end_date, u1.autoRenewal,
                 u1.created_at, u1.lastLoginAt, u1.logs,
@@ -27,7 +27,6 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
             FROM users u1
             LEFT JOIN users u2 ON u1.biz_num = u2.biz_num
                 AND u2.role IN ('owner', 'manager', 'user', 'staff')
-                AND u2.isActive = 1
             WHERE u1.role = 'owner'
         `;
         const params = [];
@@ -52,7 +51,6 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
             phone: row.phone,
             role: row.role,
             plan: row.plan,
-            isActive: row.isActive,
             qaUsedCount: row.qa_used_count,
             phoneUsedCount: row.phone_used_count,
             customQaLimit: row.custom_qa_limit,
@@ -80,7 +78,7 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
         const { bizNum } = req.params;
 
         const rows = await query(
-            `SELECT uid, email, manager_name, department, role, phone, created_at, isActive
+            `SELECT uid, email, manager_name, department, role, phone, created_at
              FROM users
              WHERE biz_num = ? AND role IN ('owner', 'manager', 'user', 'staff')
              ORDER BY created_at DESC`,
@@ -94,8 +92,7 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
             department: row.department,
             role: row.role,
             phone: row.phone,
-            createdAt: row.created_at,
-            isActive: row.isActive
+            createdAt: row.created_at
         }));
 
         res.json({ employees });
@@ -117,7 +114,7 @@ router.post('/employees/batch', authenticateToken, requireRole('master', 'admin'
         // IN 절로 한 번에 모든 직원 조회
         const placeholders = bizNums.map(() => '?').join(', ');
         const rows = await query(
-            `SELECT uid, email, manager_name, department, role, phone, created_at, isActive, biz_num
+            `SELECT uid, email, manager_name, department, role, phone, created_at, biz_num
              FROM users
              WHERE biz_num IN (${placeholders}) AND role IN ('owner', 'manager', 'user', 'staff')
              ORDER BY biz_num, created_at DESC`,
@@ -137,8 +134,7 @@ router.post('/employees/batch', authenticateToken, requireRole('master', 'admin'
                 department: row.department,
                 role: row.role,
                 phone: row.phone,
-                createdAt: row.created_at,
-                isActive: row.isActive
+                createdAt: row.created_at
             });
         });
 
@@ -185,8 +181,8 @@ router.put('/companies/:uid/status', authenticateToken, requireRole('master', 'a
         const params = [];
 
         if (typeof isActive !== 'undefined') {
-            updates.push('isActive = ?');
-            params.push(isActive ? 1 : 0);
+            updates.push('status = ?');
+            params.push(isActive ? 'Active' : 'Inactive');
         }
 
         if (updates.length === 0) {
@@ -365,8 +361,8 @@ router.post('/employees', authenticateToken, requireRole('master', 'admin', 'gen
         // 직원 생성
         await query(
             `INSERT INTO users
-             (uid, email, password_hash, company_name, representative_name, company_phone, manager_name, department, phone, role, biz_num, isActive, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())`,
+             (uid, email, password_hash, company_name, representative_name, company_phone, manager_name, department, phone, role, biz_num, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
             [
                 uid,
                 email,
@@ -420,11 +416,11 @@ router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', '
 
         console.log('[권한중지 요청]', { uid, suspend, isActive: suspend ? 0 : 1 });
 
-        const isActive = suspend ? 0 : 1;
+        const newStatus = suspend ? 'Suspended' : 'Active';
 
         const result = await query(
-            `UPDATE users SET isActive = ? WHERE uid = ?`,
-            [isActive, uid]
+            `UPDATE users SET status = ? WHERE uid = ?`,
+            [newStatus, uid]
         );
 
         console.log('[권한중지 쿼리 결과]', result);
