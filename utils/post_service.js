@@ -39,14 +39,17 @@ export async function createPost(postData, user, connection = null) {
     // 전화상담 기록은 바로 'done' 처리
     if (category === 'phone_log') {
         statusToSave = 'done';
-        answeredByToSave = user?.manager_name || user?.email || '관리자';
+        // ✅ [FIX] 기록자(관리자)의 이름을 DB에서 직접 조회하여 저장
+        const [adminUser] = await db.query('SELECT manager_name FROM users WHERE uid = ?', [user.uid]);
+        answeredByToSave = adminUser?.manager_name || user.email || '관리자';
         answeredAtToSave = now;
     }
 
     // 자문 횟수 차감 로직
-    const excludeCategories = ['phone_log', 'payment_request', 'plan_change', 'payment_method', 'member_req', 'extra_usage_quote', 'member_req_internal', 'member_req_admin'];
-    const shouldIncrementQa = !excludeCategories.includes(category) && category !== 'phone_request';
-    const shouldIncrementPhone = category === 'phone_request';
+    const excludeCategories = ['payment_request', 'plan_change', 'payment_method', 'member_req', 'extra_usage_quote', 'member_req_internal', 'member_req_admin'];
+    const shouldIncrementQa = !excludeCategories.includes(category) && category !== 'phone_request' && category !== 'phone_log';
+    // ✅ [FIX] phone_log 생성 시에도 전화 상담 횟수가 차감되도록 조건 추가
+    const shouldIncrementPhone = category === 'phone_request' || category === 'phone_log';
 
     if ((shouldIncrementQa || shouldIncrementPhone) && uidToSave) {
         const [authorInfo] = await db.query('SELECT uid, role, biz_num FROM users WHERE uid = ? LIMIT 1', [uidToSave]);
