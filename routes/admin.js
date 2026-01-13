@@ -242,6 +242,7 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
         const {
             managerName,
             phone,
+            email,
             bizNum,
             contractStartDate,
             contractEndDate,
@@ -256,6 +257,7 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
 
         if (managerName !== undefined) { updates.push('manager_name = ?'); values.push(managerName); }
         if (phone !== undefined) { updates.push('phone = ?'); values.push(phone); }
+        if (email !== undefined) { updates.push('email = ?'); values.push(email); }
         if (bizNum !== undefined) { updates.push('biz_num = ?'); values.push(bizNum); }
         if (contractStartDate !== undefined) { updates.push('contractStartDate = ?'); values.push(contractStartDate); }
         if (contractEndDate !== undefined) { updates.push('contractEndDate = ?'); values.push(contractEndDate); }
