@@ -270,14 +270,14 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
 
         values.push(uid);
 
-        await query(
+        const result = await query(
             `UPDATE users SET ${updates.join(', ')} WHERE uid = ?`,
             values
         );
 
         await addAdminLog(req.user.uid, req.user.managerName || req.user.manager_name, 'user', uid, 'INFO_UPDATE', '회사 정보 수정');
 
-        res.json({ message: '회사 정보가 수정되었습니다.' });
+        res.json({ message: '회사 정보가 수정되었습니다.', affectedRows: result.affectedRows });
     } catch (error) {
         console.error('회사 정보 수정 에러:', error);
         res.status(500).json({ error: 'DatabaseError', message: '회사 정보 수정에 실패했습니다.', detail: error.message, sql: error.sql || null });
