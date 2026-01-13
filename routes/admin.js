@@ -226,7 +226,12 @@ router.put('/companies/:uid/status', authenticateToken, requireRole('master', 'a
         res.json({ message: '상태가 변경되었습니다.' });
     } catch (error) {
         console.error('상태 변경 에러:', error);
-        res.status(500).json({ error: 'DatabaseError', message: '상태 변경에 실패했습니다.' });
+        res.status(500).json({
+            error: 'DatabaseError',
+            message: '상태 변경에 실패했습니다.',
+            detail: error.message,
+            sql: error.sql || null
+        });
     }
 });
 
