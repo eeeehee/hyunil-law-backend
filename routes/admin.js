@@ -282,7 +282,7 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
         res.json({ message: '회사 정보가 수정되었습니다.' });
     } catch (error) {
         console.error('회사 정보 수정 에러:', error);
-        res.status(500).json({ error: 'DatabaseError', message: '회사 정보 수정에 실패했습니다.' });
+        res.status(500).json({ error: 'DatabaseError', message: '회사 정보 수정에 실패했습니다.', detail: error.message, sql: error.sql || null });
     }
 });
 
