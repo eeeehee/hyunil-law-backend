@@ -130,7 +130,7 @@ router.post('/employees/batch', authenticateToken, requireRole('master', 'admin'
         // IN 절로 한 번에 모든 직원 조회
         const placeholders = bizNums.map(() => '?').join(', ');
         const rows = await query(
-            `SELECT uid, email, manager_name, department, role, phone, created_at, plan, biz_num
+            `SELECT uid, email, manager_name, department, role, phone, created_at, plan, biz_num, status
              FROM users
              WHERE biz_num IN (${placeholders}) AND role IN ('owner', 'manager', 'user', 'staff')
              ORDER BY biz_num, created_at DESC`,
@@ -159,7 +159,8 @@ router.post('/employees/batch', authenticateToken, requireRole('master', 'admin'
                 role: row.role,
                 phone: row.phone,
                 createdAt: row.created_at,
-                plan: row.plan
+                plan: row.plan,
+                status: row.status
             });
         });
 
