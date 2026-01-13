@@ -248,8 +248,7 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
             contractEndDate,
             autoRenewal,
             customLimit,
-            status,
-            isActive
+            status
         } = req.body;
 
         const updates = [];
@@ -264,7 +263,6 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
         if (autoRenewal !== undefined) { updates.push('autoRenewal = ?'); values.push(autoRenewal ? 1 : 0); }
         if (customLimit !== undefined) { updates.push('customLimit = ?'); values.push(customLimit || 0); }
         if (status !== undefined) { updates.push('status = ?'); values.push(status); }
-        if (isActive !== undefined) { updates.push('isActive = ?'); values.push(isActive ? 1 : 0); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'NoUpdate', message: '수정할 내용이 없습니다.' });
