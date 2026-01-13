@@ -73,9 +73,9 @@ export async function createPost(postData, user, connection = null) {
 
     // uid 기반 INSERT (bizNum은 users 테이블 JOIN으로 조회)
     await db.query(
-        `INSERT INTO posts (docId, uid, category, department, title, content, status, answeredBy, answeredAt, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [docId, uidToSave, category, department, title, content, statusToSave, answeredByToSave, answeredAtToSave, now, now]
+        `INSERT INTO posts (docId, uid, category, department, title, content, status, answeredBy, answeredAt, createdAt, updatedAt, bizNum, companyName)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [docId, uidToSave, category, department, title, content, statusToSave, answeredByToSave, answeredAtToSave, now, now, postData.bizNum, postData.companyName]
     );
 
     const [newPost] = await db.query('SELECT * FROM posts WHERE docId = ?', [docId]);
