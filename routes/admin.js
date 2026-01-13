@@ -246,20 +246,33 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
             contractStartDate,
             contractEndDate,
             autoRenewal,
-            customLimit
+            customLimit,
+            status,
+            isActive
         } = req.body;
 
+        const updates = [];
+        const values = [];
+
+        if (managerName !== undefined) { updates.push('manager_name = ?'); values.push(managerName); }
+        if (phone !== undefined) { updates.push('phone = ?'); values.push(phone); }
+        if (bizNum !== undefined) { updates.push('biz_num = ?'); values.push(bizNum); }
+        if (contractStartDate !== undefined) { updates.push('contractStartDate = ?'); values.push(contractStartDate); }
+        if (contractEndDate !== undefined) { updates.push('contractEndDate = ?'); values.push(contractEndDate); }
+        if (autoRenewal !== undefined) { updates.push('autoRenewal = ?'); values.push(autoRenewal ? 1 : 0); }
+        if (customLimit !== undefined) { updates.push('customLimit = ?'); values.push(customLimit || 0); }
+        if (status !== undefined) { updates.push('status = ?'); values.push(status); }
+        if (isActive !== undefined) { updates.push('isActive = ?'); values.push(isActive ? 1 : 0); }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'NoUpdate', message: '수정할 내용이 없습니다.' });
+        }
+
+        values.push(uid);
+
         await query(
-            `UPDATE users SET
-                manager_name = ?,
-                phone = ?,
-                biz_num = ?,
-                contractStartDate = ?,
-                contractEndDate = ?,
-                autoRenewal = ?,
-                customLimit = ?
-            WHERE uid = ?`,
-            [managerName, phone, bizNum, contractStartDate, contractEndDate, autoRenewal ? 1 : 0, customLimit || 0, uid]
+            `UPDATE users SET ${updates.join(', ')} WHERE uid = ?`,
+            values
         );
 
         await addAdminLog(req.user.uid, req.user.managerName || req.user.manager_name, 'user', uid, 'INFO_UPDATE', '회사 정보 수정');
