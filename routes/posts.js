@@ -367,7 +367,8 @@ router.put('/:docId/approve-department-change', authenticateToken, async (req, r
         if (!post) {
             return res.status(404).json({ message: '해당 요청을 찾을 수 없습니다.' });
         }
-        if (post.category !== 'member_req_internal') {
+        // ✅ member_req_internal (일반 부서변경) 또는 member_req_admin (파일첨부 부서변경) 허용
+        if (post.category !== 'member_req_internal' && post.category !== 'member_req_admin') {
             return res.status(400).json({ message: '부서 변경 요청이 아닙니다.' });
         }
 
@@ -427,7 +428,8 @@ router.put('/:docId/reject-department-change', authenticateToken, async (req, re
         if (!post) {
             return res.status(404).json({ message: '해당 요청을 찾을 수 없습니다.' });
         }
-        if (post.category !== 'member_req_internal') {
+        // ✅ member_req_internal (일반 부서변경) 또는 member_req_admin (파일첨부 부서변경) 허용
+        if (post.category !== 'member_req_internal' && post.category !== 'member_req_admin') {
             return res.status(400).json({ message: '부서 변경 요청이 아닙니다.' });
         }
 
