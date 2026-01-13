@@ -22,7 +22,7 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
                 u1.role, u1.plan, u1.qa_used_count, u1.phone_used_count,
                 u1.custom_qa_limit, u1.custom_phone_limit, u1.customLimit,
                 u1.contractStartDate, u1.contract_end_date, u1.autoRenewal,
-                u1.created_at, u1.lastLoginAt, u1.logs, u1.status, u1.isActive,
+                u1.created_at, u1.lastLoginAt, u1.logs, u1.status,
                 COUNT(u2.uid) as employeeCount
             FROM users u1
             LEFT JOIN users u2 ON u1.biz_num = u2.biz_num
@@ -63,7 +63,6 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
             lastLoginAt: row.lastLoginAt,
             logs: row.logs,
             status: row.status,
-            isActive: row.isActive,
             employeeCount: Number(row.employeeCount) || 0
         }));
 
