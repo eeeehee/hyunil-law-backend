@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -8,6 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// ✅ uploads 디렉토리 자동 생성
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('📁 uploads 디렉토리 생성됨:', uploadsDir);
+}
 
 // Multer 설정
 const storage = multer.diskStorage({
