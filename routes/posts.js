@@ -356,4 +356,63 @@ router.delete('/:docId', async (req, res) => {
     }
 });
 
+// ✅ [NEW] 부서 변경 요청 승인
+router.put('/:docId/approve-department-change', authenticateToken, async (req, res) => {
+    try {
+        const { docId } = req.params;
+        const approver = req.user; // 승인자 정보 (from authenticateToken)
+
+        // 1. 원본 요청(post) 조회
+        const [post] = await query('SELECT * FROM posts WHERE docId = ?', [docId]);
+        if (!post) {
+            return res.status(404).json({ message: '해당 요청을 찾을 수 없습니다.' });
+        }
+        if (post.category !== 'member_req_internal') {
+            return res.status(400).json({ message: '부서 변경 요청이 아닙니다.' });
+        }
+
+        // 2. 요청자(user) 정보 조회
+        const [requester] = await query('SELECT * FROM users WHERE uid = ?', [post.uid]);
+        if (!requester) {
+            return res.status(404).json({ message: '요청한 사용자를 찾을 수 없습니다.' });
+        }
+
+        // 3. 권한 확인 (관리자 또는 같은 회사의 owner)
+        const isOwnerOfCompany = approver.role === 'owner' && approver.bizNum === requester.biz_num;
+        const isAdmin = ['master', 'admin', 'general_manager'].includes(approver.role);
+
+        if (!isAdmin && !isOwnerOfCompany) {
+            return res.status(403).json({ message: '이 요청을 승인할 권한이 없습니다.' });
+        }
+
+        // 4. content에서 변경할 부서명 파싱
+        let requestData;
+        try {
+            requestData = JSON.parse(post.content);
+        } catch (e) {
+            return res.status(400).json({ message: '요청 데이터 형식이 잘못되었습니다.' });
+        }
+        const { newDepartment } = requestData;
+        if (!newDepartment) {
+            return res.status(400).json({ message: '변경할 부서명이 요청에 포함되지 않았습니다.' });
+        }
+
+        // 5. 사용자의 부서 정보 업데이트
+        await query('UPDATE users SET department = ? WHERE uid = ?', [newDepartment, requester.uid]);
+
+        // 6. 요청(post)의 상태를 'completed'로 업데이트 및 승인자 정보 기록
+        const approverName = approver.manager_name || approver.email;
+        await query(
+            "UPDATE posts SET status = 'completed', answeredBy = ?, answeredAt = NOW() WHERE docId = ?",
+            [approverName, docId]
+        );
+
+        res.json({ message: '부서 변경이 승인되었고, 사용자의 정보가 업데이트되었습니다.' });
+
+    } catch (error) {
+        console.error('부서 변경 승인 에러:', error);
+        res.status(500).json({ message: '서버 처리 중 오류가 발생했습니다.' });
+    }
+});
+
 export default router;
