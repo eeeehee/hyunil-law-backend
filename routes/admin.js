@@ -22,7 +22,7 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
                 u1.role, u1.plan, u1.qa_used_count, u1.phone_used_count,
                 u1.custom_qa_limit, u1.custom_phone_limit, u1.customLimit,
                 u1.contractStartDate, u1.contract_end_date, u1.autoRenewal,
-                u1.created_at, u1.lastLoginAt, u1.logs,
+                u1.created_at, u1.lastLoginAt, u1.logs, u1.status, u1.isActive,
                 COUNT(u2.uid) as employeeCount
             FROM users u1
             LEFT JOIN users u2 ON u1.biz_num = u2.biz_num
@@ -62,6 +62,8 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
             createdAt: row.created_at,
             lastLoginAt: row.lastLoginAt,
             logs: row.logs,
+            status: row.status,
+            isActive: row.isActive,
             employeeCount: Number(row.employeeCount) || 0
         }));
 
@@ -270,17 +272,17 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
 
         values.push(uid);
 
-        const result = await query(
+        await query(
             `UPDATE users SET ${updates.join(', ')} WHERE uid = ?`,
             values
         );
 
         await addAdminLog(req.user.uid, req.user.managerName || req.user.manager_name, 'user', uid, 'INFO_UPDATE', '회사 정보 수정');
 
-        res.json({ message: '회사 정보가 수정되었습니다.', affectedRows: result.affectedRows });
+        res.json({ message: '회사 정보가 수정되었습니다.' });
     } catch (error) {
         console.error('회사 정보 수정 에러:', error);
-        res.status(500).json({ error: 'DatabaseError', message: '회사 정보 수정에 실패했습니다.', detail: error.message, sql: error.sql || null });
+        res.status(500).json({ error: 'DatabaseError', message: '회사 정보 수정에 실패했습니다.' });
     }
 });
 
