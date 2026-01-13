@@ -415,4 +415,49 @@ router.put('/:docId/approve-department-change', authenticateToken, async (req, r
     }
 });
 
+// ✅ [NEW] 부서 변경 요청 거절
+router.put('/:docId/reject-department-change', authenticateToken, async (req, res) => {
+    try {
+        const { docId } = req.params;
+        const { reason } = req.body;
+        const rejecter = req.user;
+
+        // 1. 원본 요청(post) 조회
+        const [post] = await query('SELECT * FROM posts WHERE docId = ?', [docId]);
+        if (!post) {
+            return res.status(404).json({ message: '해당 요청을 찾을 수 없습니다.' });
+        }
+        if (post.category !== 'member_req_internal') {
+            return res.status(400).json({ message: '부서 변경 요청이 아닙니다.' });
+        }
+
+        // 2. 요청자(user) 정보 조회
+        const [requester] = await query('SELECT * FROM users WHERE uid = ?', [post.uid]);
+        if (!requester) {
+            return res.status(404).json({ message: '요청한 사용자를 찾을 수 없습니다.' });
+        }
+
+        // 3. 권한 확인 (관리자 또는 같은 회사의 owner)
+        const isOwnerOfCompany = rejecter.role === 'owner' && rejecter.bizNum === requester.biz_num;
+        const isAdmin = ['master', 'admin', 'general_manager'].includes(rejecter.role);
+
+        if (!isAdmin && !isOwnerOfCompany) {
+            return res.status(403).json({ message: '이 요청을 거절할 권한이 없습니다.' });
+        }
+
+        // 4. 요청(post)의 상태를 'rejected'로 업데이트 및 거절자/사유 기록
+        const rejecterName = rejecter.manager_name || rejecter.email;
+        await query(
+            "UPDATE posts SET status = 'rejected', answeredBy = ?, answeredAt = NOW(), rejectReason = ? WHERE docId = ?",
+            [rejecterName, reason || '사유 없음', docId]
+        );
+
+        res.json({ message: '부서 변경 요청이 거절되었습니다.' });
+
+    } catch (error) {
+        console.error('부서 변경 거절 에러:', error);
+        res.status(500).json({ message: '서버 처리 중 오류가 발생했습니다.' });
+    }
+});
+
 export default router;
