@@ -75,7 +75,7 @@ router.get('/counts', authenticateToken, async (req, res) => {
 // 게시글 목록 조회
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        const { category, status, search, limit = 50, offset = 0 } = req.query;
+        const { category, status, search, bizNum, limit = 50, offset = 0 } = req.query; // bizNum 추가
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
 
         let sql, params;
@@ -120,6 +120,13 @@ router.get('/', authenticateToken, async (req, res) => {
                 sql += ` AND p.category IN (${placeholders})`;
                 params.push(...categories);
             }
+        }
+        
+        // ✅ bizNum 필터 추가
+        if (bizNum) {
+            // posts 테이블의 bizNum 또는 users 테이블의 biz_num으로 검색
+            sql += ` AND (p.bizNum = ? OR u.biz_num = ?)`;
+            params.push(bizNum, bizNum);
         }
 
         if (status) {
