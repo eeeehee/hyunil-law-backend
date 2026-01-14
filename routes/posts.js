@@ -4,10 +4,24 @@ import { authenticateToken } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
-router.use(authenticateToken);
+
+// 선택적 인증 미들웨어 (토큰이 있으면 검증, 없으면 guest로 처리)
+function optionalAuth(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        // 토큰 없으면 guest 사용자로 처리
+        req.user = null;
+        return next();
+    }
+
+    // 토큰 있으면 기존 authenticateToken 로직 실행
+    return authenticateToken(req, res, next);
+}
 
 // 대시보드 카운트 (답변대기중/답변완료)
-router.get('/counts', async (req, res) => {
+router.get('/counts', authenticateToken, async (req, res) => {
     try {
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
         const userUid = req.user.uid;
@@ -59,7 +73,7 @@ router.get('/counts', async (req, res) => {
 });
 
 // 게시글 목록 조회
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
     try {
         const { category, status, search, limit = 50, offset = 0 } = req.query;
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
@@ -145,7 +159,7 @@ router.get('/', async (req, res) => {
 });
 
 // 게시글 상세 조회
-router.get('/:docId', async (req, res) => {
+router.get('/:docId', authenticateToken, async (req, res) => {
     try {
         const [post] = await query(
             `SELECT p.docId, p.uid, p.authorName, p.contact, p.bizNum, p.category, p.department, p.title, p.content, p.status, p.priority, p.assignedTo, p.answer, p.answeredBy, p.answeredAt, p.createdAt, p.updatedAt, p.rejectReason, p.quotedAt,
@@ -186,8 +200,8 @@ router.get('/:docId', async (req, res) => {
 
 import { createPost } from '../utils/post_service.js';
 
-// 게시글 생성
-router.post('/', async (req, res) => {
+// 게시글 생성 (비회원 허용 - optionalAuth 사용)
+router.post('/', optionalAuth, async (req, res) => {
     try {
         const newPost = await createPost(req.body, req.user);
         res.status(201).json(newPost);
@@ -198,7 +212,7 @@ router.post('/', async (req, res) => {
 });
 
 // 게시글 수정
-router.put('/:docId', async (req, res) => {
+router.put('/:docId', authenticateToken, async (req, res) => {
     try {
         const { title, content, status, answer, answeredAt, quotedPrice, rejectReason, quotedAt } = req.body;
         const { docId } = req.params;
@@ -301,7 +315,7 @@ router.put('/:docId', async (req, res) => {
 });
 
 // 게시글 삭제
-router.delete('/:docId', async (req, res) => {
+router.delete('/:docId', authenticateToken, async (req, res) => {
     try {
         const { docId } = req.params;
 
