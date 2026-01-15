@@ -407,20 +407,30 @@ router.put('/:docId/approve-department-change', authenticateToken, async (req, r
             return res.status(403).json({ message: '이 요청을 승인할 권한이 없습니다.' });
         }
 
-        // 4. content에서 변경할 부서명 파싱
+        // 4. content에서 변경할 정보 파싱
         let requestData;
         try {
             requestData = JSON.parse(post.content);
         } catch (e) {
             return res.status(400).json({ message: '요청 데이터 형식이 잘못되었습니다.' });
         }
-        const { newDepartment } = requestData;
-        if (!newDepartment) {
-            return res.status(400).json({ message: '변경할 부서명이 요청에 포함되지 않았습니다.' });
-        }
 
-        // 5. 사용자의 부서 정보 업데이트
-        await query('UPDATE users SET department = ? WHERE uid = ?', [newDepartment, requester.uid]);
+        // 5. 요청 타입에 따라 처리 (부서 변경 또는 직급 변경)
+        const { type, newDepartment, newRank } = requestData;
+
+        if (type === 'rank') {
+            // 직급 변경 처리
+            if (!newRank) {
+                return res.status(400).json({ message: '변경할 직급이 요청에 포함되지 않았습니다.' });
+            }
+            await query('UPDATE users SET role = ? WHERE uid = ?', [newRank, requester.uid]);
+        } else {
+            // 부서 변경 처리 (기본)
+            if (!newDepartment) {
+                return res.status(400).json({ message: '변경할 부서명이 요청에 포함되지 않았습니다.' });
+            }
+            await query('UPDATE users SET department = ? WHERE uid = ?', [newDepartment, requester.uid]);
+        }
 
         // 6. 요청(post)의 상태를 'completed'로 업데이트 및 승인자 정보 기록
         const approverName = approver.manager_name || approver.email;
@@ -429,7 +439,8 @@ router.put('/:docId/approve-department-change', authenticateToken, async (req, r
             [approverName, docId]
         );
 
-        res.json({ message: '부서 변경이 승인되었고, 사용자의 정보가 업데이트되었습니다.' });
+        const changeType = type === 'rank' ? '직급' : '부서';
+        res.json({ message: `${changeType} 변경이 승인되었고, 사용자의 정보가 업데이트되었습니다.` });
 
     } catch (error) {
         console.error('부서 변경 승인 에러:', error);
