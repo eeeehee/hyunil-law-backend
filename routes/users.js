@@ -16,6 +16,38 @@ function parseDepartments(departmentsStr) {
     }
 }
 
+// 부서 목록 조회 (같은 회사 소속 사용자만)
+router.get('/departments', authenticateToken, async (req, res) => {
+    try {
+        if (!req.user || !req.user.bizNum) {
+            return res.status(403).json({ message: '사용자 정보가 없거나 회사에 소속되어 있지 않습니다.' });
+        }
+
+        const [owner] = await query(
+            `SELECT departments FROM users WHERE biz_num = ? AND role = 'owner' LIMIT 1`,
+            [req.user.bizNum]
+        );
+
+        if (!owner || !owner.departments) {
+            return res.json({ departments: [] });
+        }
+
+        const departments = parseDepartments(owner.departments);
+
+        // departments가 배열 형태인지 확인 (JSON.parse 결과)
+        if (Array.isArray(departments)) {
+            res.json({ departments });
+        } else {
+            // 호환성을 위해, 배열이 아니면 빈 배열 반환
+            res.json({ departments: [] });
+        }
+
+    } catch (error) {
+        console.error('부서 목록 조회 오류:', error);
+        res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+    }
+});
+
 // 현재 사용자 정보 조회
 router.get('/me', authenticateToken, async (req, res) => {
     try {
