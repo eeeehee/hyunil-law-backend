@@ -328,7 +328,7 @@ router.put('/me', authenticateToken, async (req, res) => {
 // 사용자 역할/플랜 업데이트 (관리자 또는 CEO/owner)
 router.put('/:uid', authenticateToken, requireAdminOrCEO, async (req, res) => {
     try {
-        const { role, plan, qaUsedCount, phoneUsedCount, departments } = req.body;
+        const { role, plan, qaUsedCount, phoneUsedCount, departments, managerName, department, phone } = req.body;
 
         // owner인 경우 자기 회사 직원만 수정 가능
         const isOwner = ['owner', 'CEO'].includes(req.user?.role);
@@ -376,6 +376,18 @@ router.put('/:uid', authenticateToken, requireAdminOrCEO, async (req, res) => {
         if (departments !== undefined) {
             updates.push('departments = ?');
             params.push(departments === null ? null : JSON.stringify(departments));
+        }
+        if (managerName !== undefined) {
+            updates.push('manager_name = ?');
+            params.push(managerName);
+        }
+        if (department !== undefined) {
+            updates.push('department = ?');
+            params.push(department);
+        }
+        if (phone !== undefined) {
+            updates.push('phone = ?');
+            params.push(phone);
         }
 
         if (updates.length === 0) {
