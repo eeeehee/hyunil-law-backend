@@ -115,13 +115,15 @@ router.get('/', authenticateToken, async (req, res) => {
         // --- 날짜 필터링 추가 ---
         if (startDate) {
             // startDate는 'YYYY-MM-DD HH:MM:SS' 형식의 로컬 시간 문자열로 프론트에서 넘어옴
-            sql += ` AND p.createdAt >= ?`;
+            // MariaDB의 DATE() 함수를 사용하여 날짜 부분만 비교
+            sql += ` AND DATE(p.createdAt) >= DATE(?)`;
             params.push(startDate);
         }
         if (endDate) {
             // endDate는 'YYYY-MM-DD HH:MM:SS' 형식의 로컬 시간 문자열 (다음 달 1일 00:00:00)로 프론트에서 넘어옴
-            // 'p.createdAt < ?' 로 비교하여 해당 월의 마지막 시간까지 포함
-            sql += ` AND p.createdAt < ?`; // < 로 유지
+            // MariaDB의 DATE() 함수를 사용하여 날짜 부분만 비교하되,
+            // '다음 달 1일' 미만으로 비교하면 해당 월의 마지막 날까지 정확히 포함
+            sql += ` AND DATE(p.createdAt) < DATE(?)`; // < 로 유지
             params.push(endDate);
         }
         // --- 날짜 필터링 끝 ---
