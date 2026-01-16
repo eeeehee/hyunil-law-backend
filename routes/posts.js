@@ -75,7 +75,7 @@ router.get('/counts', authenticateToken, async (req, res) => {
 // 게시글 목록 조회
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        const { category, status, search, bizNum, limit = 50, offset = 0 } = req.query; // bizNum 추가
+        const { category, status, search, bizNum, limit = 50, offset = 0, startDate, endDate } = req.query; // startDate, endDate 추가
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user.role);
 
         let sql, params;
@@ -111,6 +111,17 @@ router.get('/', authenticateToken, async (req, res) => {
             `;
             params = [req.user.uid];
         }
+
+        // --- 날짜 필터링 추가 ---
+        if (startDate) {
+            sql += ` AND p.createdAt >= ?`;
+            params.push(startDate);
+        }
+        if (endDate) {
+            sql += ` AND p.createdAt < ?`; // endDate는 다음 달 1일이므로 < 로 비교
+            params.push(endDate);
+        }
+        // --- 날짜 필터링 끝 ---
 
         if (category) {
             // 콤마로 구분된 여러 카테고리 지원
