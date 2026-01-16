@@ -28,13 +28,12 @@ router.get('/', async (req, res) => {
         const params = [];
 
         // 일반 권한은 자기 회사(사업자번호) 보고서만
-        if (!isAdmin) {
+        if (!isAdmin) { // 관리자가 아니면 자기 회사 보고서만
             sql += ' AND target_biz_num = ?';
             params.push(req.user.bizNum);
-        } else if (req.user?.bizNum) {
-            // 관리자도 기본은 회사 단위로 격리
-            sql += ' AND target_biz_num = ?';
-            params.push(req.user.bizNum);
+        } else { // 관리자는 모든 회사 보고서 조회 가능
+            // 관리자가 특정 회사의 보고서를 조회하려는 경우 (예: bizNum 쿼리 파라미터)
+            // 현재 코드에는 bizNum 쿼리 파라미터 로직이 없으므로, 모든 보고서 조회
         }
 
         if (type) {
