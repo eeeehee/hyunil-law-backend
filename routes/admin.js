@@ -3,6 +3,12 @@ import { query } from '../config/database.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -606,5 +612,53 @@ async function addAdminLog(adminUid, adminName, targetType, targetId, action, de
         console.error('관리자 로그 추가 에러:', error);
     }
 }
+
+// [NEW] 콘텐츠 파일 수정 API
+router.post('/update-content-file', authenticateToken, requireRole('master', 'admin'), async (req, res) => {
+    const { filePath, content } = req.body;
+
+    if (!filePath || typeof content !== 'string') {
+        return res.status(400).json({ message: 'filePath와 content는 필수 항목입니다.' });
+    }
+
+    try {
+        // 보안: 허용된 디렉토리 설정 (루트/backend에서 frontend/pages/public으로 경로 설정)
+        const allowedDir = path.resolve(__dirname, '..', '..', 'frontend', 'pages', 'public');
+        
+        // 최종 파일 경로 계산
+        const targetPath = path.resolve(__dirname, '..', '..', filePath);
+
+        // 보안: 계산된 경로가 허용된 디렉토리 내에 있는지 확인 (디렉토리 순회 공격 방지)
+        if (!targetPath.startsWith(allowedDir)) {
+            console.warn(`보안 경고: 허용되지 않은 경로 접근 시도 - ${targetPath}`);
+            return res.status(403).json({ message: '허용되지 않은 위치의 파일에 접근할 수 없습니다.' });
+        }
+
+        // 파일 쓰기
+        await fs.writeFile(targetPath, content, 'utf8');
+
+        // 관리자 로그 기록
+        await addAdminLog(
+            req.user.uid,
+            req.user.managerName || req.user.name,
+            'content',
+            filePath,
+            'FILE_UPDATE',
+            `콘텐츠 파일 수정: ${filePath}`
+        );
+
+        res.status(200).json({ message: '파일이 성공적으로 업데이트되었습니다.' });
+
+    } catch (error) {
+        console.error('파일 업데이트 중 오류 발생:', error);
+        if (error.code === 'ENOENT') {
+             res.status(404).json({ message: '파일을 찾을 수 없습니다.' });
+        } else if (error.code === 'EACCES') {
+             res.status(403).json({ message: '파일 쓰기 권한이 없습니다.' });
+        } else {
+             res.status(500).json({ message: '서버 오류로 파일 업데이트에 실패했습니다.' });
+        }
+    }
+});
 
 export default router;
