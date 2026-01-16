@@ -114,12 +114,20 @@ router.get('/', authenticateToken, async (req, res) => {
 
         // --- 날짜 필터링 추가 ---
         if (startDate) {
+            // startDate는 'YYYY-MM-DDTHH:MM:SS.sssZ' 형식의 ISO 문자열로 가정
+            // MariaDB DATETIME과 비교를 위해 'YYYY-MM-DD HH:MM:SS' 형식으로 변환
+            const startDateTime = new Date(startDate).toISOString().slice(0, 19).replace('T', ' ');
             sql += ` AND p.createdAt >= ?`;
-            params.push(startDate);
+            params.push(startDateTime);
         }
         if (endDate) {
-            sql += ` AND p.createdAt < ?`; // endDate는 다음 달 1일이므로 < 로 비교
-            params.push(endDate);
+            // endDate는 'YYYY-MM-DDTHH:MM:SS.sssZ' 형식의 ISO 문자열로 가정
+            // 'endDate < ?' 대신, 해당 월의 마지막 날 23:59:59.999까지 포함하도록 조정
+            // endDateObj는 다음 달 1일 0시 0분 0초 UTC이므로,
+            // 실제로는 이전 날 23:59:59를 의미 (프론트에서 startDate=1일0시0분, endDate=다음달1일0시0분으로 보냄)
+            const endDateTime = new Date(new Date(endDate).getTime() - 1).toISOString().slice(0, 19).replace('T', ' '); // endDate - 1ms
+            sql += ` AND p.createdAt <= ?`; // <= 로 변경하여 해당 월의 마지막 시간까지 포함
+            params.push(endDateTime);
         }
         // --- 날짜 필터링 끝 ---
 
