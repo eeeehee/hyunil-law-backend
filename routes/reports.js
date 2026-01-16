@@ -78,10 +78,9 @@ router.get('/:docId', async (req, res) => {
 
         const params = [req.params.docId];
         let sql = 'SELECT * FROM reports WHERE doc_id = ?';
+
+        // 관리자는 모든 리포트 조회 가능, 일반 사용자는 자기 회사 리포트만
         if (!isAdmin) {
-            sql += ' AND target_biz_num = ?';
-            params.push(req.user.bizNum);
-        } else if (req.user?.bizNum) {
             sql += ' AND target_biz_num = ?';
             params.push(req.user.bizNum);
         }
