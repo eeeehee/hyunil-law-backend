@@ -138,6 +138,7 @@ router.post('/signup', async (req, res) => {
       'SELECT uid FROM users WHERE biz_num = ?',
       [bizNum]
     );
+
     if (existingBizNum.length > 0) {
       return res.status(409).json({
         error: 'Business number already exists',
