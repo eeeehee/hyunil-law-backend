@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -17,24 +18,24 @@ router.get('/service-prices', requireAdmin, async (req, res) => {
         res.json({ prices });
 
     } catch (error) {
-        console.error('서비스 단가 조회 에러:', error);
+        logger.error('서비스 단가 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
 
 // 서비스 단가 업데이트
 router.put('/service-prices', requireAdmin, async (req, res) => {
-    console.log('🔥🔥🔥 PUT /service-prices 핸들러 실행됨!!! 🔥🔥🔥');
+    logger.info('🔥🔥🔥 PUT /service-prices 핸들러 실행됨!!! 🔥🔥🔥');
     
     try {
         const { prices } = req.body;
 
         if (!prices || typeof prices !== 'object') {
-            console.error('❌ [단가 설정] 잘못된 요청:', req.body);
+            logger.error('❌ [단가 설정] 잘못된 요청:', { body: req.body });
             return res.status(400).json({ message: '잘못된 요청입니다.' });
         }
 
-        console.log('💾 [단가 설정] 저장 시작:', prices);
+        logger.info('💾 [단가 설정] 저장 시작:', { prices });
 
         for (const [type, price] of Object.entries(prices)) {
             await query(
@@ -53,7 +54,7 @@ router.put('/service-prices', requireAdmin, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ [단가 설정] 오류:', error);
+        logger.error('❌ [단가 설정] 오류:', { error });
         res.status(500).json({
             success: false,
             message: '서버 오류가 발생했습니다.',
@@ -140,7 +141,7 @@ router.get('/', requireAdmin, async (req, res) => {
         res.json({ payments });
 
     } catch (error) {
-        console.error('매출 목록 조회 에러:', error);
+        logger.error('매출 목록 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -190,7 +191,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('통계 조회 에러:', error);
+        logger.error('통계 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -217,7 +218,7 @@ router.post('/', requireAdmin, async (req, res) => {
         res.status(201).json(newPayment);
 
     } catch (error) {
-        console.error('매출 등록 에러:', error);
+        logger.error('매출 등록 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -259,7 +260,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
         res.json(updatedPayment);
 
     } catch (error) {
-        console.error('매출 업데이트 에러:', error);
+        logger.error('매출 업데이트 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -291,7 +292,7 @@ router.get('/contracts', requireAdmin, async (req, res) => {
         res.json({ contracts });
 
     } catch (error) {
-        console.error('구독 회원 목록 조회 에러:', error);
+        logger.error('구독 회원 목록 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -346,7 +347,7 @@ router.put('/contracts/:uid', requireAdmin, async (req, res) => {
         res.json(updatedUser);
 
     } catch (error) {
-        console.error('구독 회원 업데이트 에러:', error);
+        logger.error('구독 회원 업데이트 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -430,7 +431,7 @@ router.post('/generate-monthly', requireAdmin, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('정기 청구서 생성 에러:', error);
+        logger.error('정기 청구서 생성 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -484,7 +485,7 @@ router.get('/search-clients', requireAdmin, async (req, res) => {
         res.json({ clients: uniqueClients });
 
     } catch (error) {
-        console.error('통합 검색 에러:', error);
+        logger.error('통합 검색 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });

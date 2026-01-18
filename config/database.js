@@ -3,6 +3,7 @@ import mariadb from 'mariadb';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from './logger.js';
 
 // Always load .env from the backend directory regardless of where Node is started from
 const __filename = fileURLToPath(import.meta.url);
@@ -13,10 +14,10 @@ const isDev = process.env.NODE_ENV === 'development';
 
 if (isDev) {
 
-    console.log('🔧 개발 환경 설정(.env.dev)을 로드합니다.');
+    logger.info('🔧 개발 환경 설정(.env.dev)을 로드합니다.');
     dotenv.config({ path: path.join(__dirname, '..', '.env.dev') });
 } else {
-    console.log('🔧 기타 환경 설정(.env)을 로드합니다.');
+    logger.info('🔧 기타 환경 설정(.env)을 로드합니다.');
     dotenv.config({ path: path.join(__dirname, '..', '.env') });
 }
 
@@ -39,10 +40,10 @@ export async function testConnection() {
     try {
         conn = await pool.getConnection();
         const rows = await conn.query('SELECT 1 as test');
-        console.log('✅ MariaDB 연결 성공');
+        logger.info('✅ MariaDB 연결 성공');
         return true;
     } catch (err) {
-        console.error('❌ MariaDB 연결 실패:', err);
+        logger.error('❌ MariaDB 연결 실패:', { error: err.message });
         return false;
     } finally {
         if (conn) conn.release();
@@ -57,7 +58,7 @@ export async function query(sql, params = []) {
         const rows = await conn.query(sql, params);
         return rows;
     } catch (err) {
-        console.error('쿼리 실행 오류:', err);
+        logger.error('쿼리 실행 오류:', { sql, params, error: err.message });
         throw err;
     } finally {
         if (conn) conn.release();
@@ -77,7 +78,7 @@ export async function transaction(callback) {
         return result;
     } catch (err) {
         if (conn) await conn.rollback();
-        console.error('트랜잭션 오류:', err);
+        logger.error('트랜잭션 오류:', { error: err.message });
         throw err;
     } finally {
         if (conn) conn.release();

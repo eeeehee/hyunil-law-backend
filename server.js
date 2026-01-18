@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import morgan from 'morgan';
+import { logger, stream } from './config/logger.js';
 import { testConnection } from './config/database.js';
 
 // Routes
@@ -42,11 +44,9 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Request logging middleware
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    next();
-});
+// Request logging middleware (Morgan)
+const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+app.use(morgan(morganFormat, { stream }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -86,7 +86,7 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-    console.error('서버 오류:', err);
+    logger.error('서버 오류:', { message: err.message, stack: err.stack, path: req.path, method: req.method });
     res.status(err.status || 500).json({ 
         error: err.message || 'Internal Server Error',
         message: '서버 오류가 발생했습니다.'
@@ -100,12 +100,12 @@ async function startServer() {
         const dbConnected = await testConnection();
         
         if (!dbConnected) {
-            console.error('❌ 데이터베이스 연결 실패. 서버를 시작할 수 없습니다.');
+            logger.error('❌ 데이터베이스 연결 실패. 서버를 시작할 수 없습니다.');
             process.exit(1);
         }
 
         app.listen(PORT, () => {
-            console.log(`
+            logger.info(`
 ╔═══════════════════════════════════════════════════════╗
 ║                                                       ║
 ║   🚀 Corporate Hyunil Law Backend API Server         ║
@@ -127,7 +127,7 @@ async function startServer() {
             `);
         });
     } catch (error) {
-        console.error('서버 시작 오류:', error);
+        logger.error('서버 시작 오류:', error);
         process.exit(1);
     }
 }
