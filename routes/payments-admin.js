@@ -7,7 +7,63 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // ===========================
-// 1. 매출 장부 API
+// 1. 서비스 단가 관리 API (특정 경로이므로 상단 배치)
+// ===========================
+
+// 서비스 단가 조회
+router.get('/service-prices', requireAdmin, async (req, res) => {
+    try {
+        const prices = await query('SELECT * FROM service_prices ORDER BY id');
+        res.json({ prices });
+
+    } catch (error) {
+        console.error('서비스 단가 조회 에러:', error);
+        res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+    }
+});
+
+// 서비스 단가 업데이트
+router.put('/service-prices', requireAdmin, async (req, res) => {
+    console.log('🔥🔥🔥 PUT /service-prices 핸들러 실행됨!!! 🔥🔥🔥');
+    
+    try {
+        const { prices } = req.body;
+
+        if (!prices || typeof prices !== 'object') {
+            console.error('❌ [단가 설정] 잘못된 요청:', req.body);
+            return res.status(400).json({ message: '잘못된 요청입니다.' });
+        }
+
+        console.log('💾 [단가 설정] 저장 시작:', prices);
+
+        for (const [type, price] of Object.entries(prices)) {
+            await query(
+                `INSERT INTO service_prices (type, price)
+                 VALUES (?, ?)
+                 ON DUPLICATE KEY UPDATE price = ?`,
+                [type, price, price]
+            );
+        }
+
+        const updatedPrices = await query('SELECT * FROM service_prices ORDER BY id');
+        res.json({
+            success: true,
+            message: '단가 설정이 저장되었습니다.',
+            prices: updatedPrices
+        });
+
+    } catch (error) {
+        console.error('❌ [단가 설정] 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 오류가 발생했습니다.',
+            error: error.message
+        });
+    }
+});
+
+// ===========================
+// 2. 매출 장부 API
 // ===========================
 
 // 매출 목록 조회
@@ -209,7 +265,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 });
 
 // ===========================
-// 2. 구독 회원 관리 API
+// 3. 구독 회원 관리 API
 // ===========================
 
 // 구독 회원 목록 조회
@@ -376,85 +432,6 @@ router.post('/generate-monthly', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('정기 청구서 생성 에러:', error);
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
-    }
-});
-
-// ===========================
-// 3. 서비스 단가 관리 API
-// ===========================
-
-// 서비스 단가 조회
-router.get('/service-prices', requireAdmin, async (req, res) => {
-    try {
-        const prices = await query('SELECT * FROM service_prices ORDER BY id');
-        res.json({ prices });
-
-    } catch (error) {
-        console.error('서비스 단가 조회 에러:', error);
-        res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
-    }
-});
-
-// 서비스 단가 업데이트
-router.put('/service-prices', async (req, res) => {
-    console.log('🔥🔥🔥 PUT /service-prices 핸들러 실행됨!!! 🔥🔥🔥');
-    console.log('요청 전체:', req.method, req.path);
-    console.log('요청 본문:', req.body);
-    console.log('토큰:', req.headers.authorization);
-
-    // 관리자 권한 체크
-    if (!req.user) {
-        console.error('❌ 사용자 인증 실패');
-        return res.status(401).json({ message: '인증이 필요합니다.' });
-    }
-
-    const adminRoles = ['master', 'admin', 'general_manager', 'lawyer'];
-    if (!adminRoles.includes(req.user.role)) {
-        console.error('❌ 권한 없음:', req.user.role);
-        return res.status(403).json({ message: '관리자 권한이 필요합니다.' });
-    }
-
-    try {
-        console.log('📝 [단가 설정] 요청 받음');
-        console.log('요청 본문:', req.body);
-
-        const { prices } = req.body;
-
-        if (!prices || typeof prices !== 'object') {
-            console.error('❌ [단가 설정] 잘못된 요청:', req.body);
-            return res.status(400).json({ message: '잘못된 요청입니다.' });
-        }
-
-        console.log('💾 [단가 설정] 저장 시작:', prices);
-
-        for (const [type, price] of Object.entries(prices)) {
-            console.log(`  - ${type}: ${price}`);
-            await query(
-                `INSERT INTO service_prices (type, price)
-                 VALUES (?, ?)
-                 ON DUPLICATE KEY UPDATE price = ?`,
-                [type, price, price]
-            );
-        }
-
-        console.log('✅ [단가 설정] 저장 완료');
-
-        const updatedPrices = await query('SELECT * FROM service_prices ORDER BY id');
-        console.log('📤 [단가 설정] 응답 전송:', updatedPrices.length + '개');
-
-        res.json({
-            success: true,
-            message: '단가 설정이 저장되었습니다.',
-            prices: updatedPrices
-        });
-
-    } catch (error) {
-        console.error('❌ [단가 설정] 오류:', error);
-        res.status(500).json({
-            success: false,
-            message: '서버 오류가 발생했습니다.',
-            error: error.message
-        });
     }
 });
 
