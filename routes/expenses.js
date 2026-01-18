@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken, requireManager } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -45,7 +46,7 @@ router.get('/', async (req, res) => {
         const expenses = await query(sql, params);
         res.json({ expenses, total: expenses.length, limit: parseInt(limit), offset: parseInt(offset) });
     } catch (error) {
-        console.error('경비 목록 조회 에러:', error);
+        logger.error('경비 목록 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -73,7 +74,7 @@ router.post('/', requireManager, async (req, res) => {
         const [expense] = await query('SELECT * FROM company_expenses WHERE doc_id = ? AND biz_num = ?', [docId, req.user.bizNum]);
         res.status(201).json(expense);
     } catch (error) {
-        console.error('경비 등록 에러:', error);
+        logger.error('경비 등록 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });

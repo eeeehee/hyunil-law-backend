@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 
@@ -62,7 +63,7 @@ router.get('/counts', authenticateToken, async (req, res) => {
             totalCount: Number(row?.totalCount ?? 0)
         });
     } catch (error) {
-        console.error('게시글 카운트 조회 에러:', error);
+        logger.error('게시글 카운트 조회 에러:', { error });
         // 상세 오류 메시지 반환
         res.status(500).json({
             message: '서버 오류가 발생했습니다.',
@@ -172,7 +173,7 @@ router.get('/', authenticateToken, async (req, res) => {
         res.json({ posts, total: posts.length, limit: parseInt(limit), offset: parseInt(offset) });
 
     } catch (error) {
-        console.error('게시글 목록 조회 에러:', error);
+        logger.error('게시글 목록 조회 에러:', { error });
         res.status(500).json({
             message: '서버 오류가 발생했습니다.',
             error: error.message,
@@ -216,7 +217,7 @@ router.get('/:docId', authenticateToken, async (req, res) => {
 
         res.json(post);
     } catch (error) {
-        console.error('게시글 상세 조회 에러:', error);
+        logger.error('게시글 상세 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.' });
     }
 });
@@ -229,7 +230,7 @@ router.post('/', optionalAuth, async (req, res) => {
         const newPost = await createPost(req.body, req.user);
         res.status(201).json(newPost);
     } catch (error) {
-        console.error('게시글 생성 에러:', error);
+        logger.error('게시글 생성 에러:', { error });
         res.status(500).json({ message: error.message || '서버 오류가 발생했습니다.' });
     }
 });
@@ -328,7 +329,7 @@ router.put('/:docId', authenticateToken, async (req, res) => {
         res.json(updatedPost);
 
     } catch (error) {
-        console.error('게시글 수정 에러:', error);
+        logger.error('게시글 수정 에러:', { error });
         res.status(500).json({ 
             message: '서버 오류가 발생했습니다.',
             detail: error.message,
@@ -376,10 +377,10 @@ router.delete('/:docId', authenticateToken, async (req, res) => {
             // 횟수 복구 (차감된 횟수를 되돌림)
             if (shouldDecrementQa) {
                 await query(`UPDATE users SET qa_used_count = GREATEST(0, qa_used_count - 1) WHERE uid = ?`, [targetUidForUsage]);
-                console.log(`✅ 서면 자문 횟수 복구: uid=${targetUidForUsage}, docId=${docId}`);
+                logger.info(`✅ 서면 자문 횟수 복구: uid=${targetUidForUsage}, docId=${docId}`);
             } else if (shouldDecrementPhone) {
                 await query(`UPDATE users SET phone_used_count = GREATEST(0, phone_used_count - 1) WHERE uid = ?`, [targetUidForUsage]);
-                console.log(`✅ 전화 상담 횟수 복구: uid=${targetUidForUsage}, docId=${docId}`);
+                logger.info(`✅ 전화 상담 횟수 복구: uid=${targetUidForUsage}, docId=${docId}`);
             }
         }
 
@@ -388,7 +389,7 @@ router.delete('/:docId', authenticateToken, async (req, res) => {
         res.json({ message: '게시글이 삭제되었습니다.' });
 
     } catch (error) {
-        console.error('게시글 삭제 에러:', error);
+        logger.error('게시글 삭제 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.' });
     }
 });
@@ -459,7 +460,7 @@ router.put('/:docId/approve-department-change', authenticateToken, async (req, r
         res.json({ message: `${changeType} 변경이 승인되었고, 사용자의 정보가 업데이트되었습니다.` });
 
     } catch (error) {
-        console.error('부서 변경 승인 에러:', error);
+        logger.error('부서 변경 승인 에러:', { error });
         res.status(500).json({ message: '서버 처리 중 오류가 발생했습니다.' });
     }
 });
@@ -505,7 +506,7 @@ router.put('/:docId/reject-department-change', authenticateToken, async (req, re
         res.json({ message: '부서 변경 요청이 거절되었습니다.' });
 
     } catch (error) {
-        console.error('부서 변경 거절 에러:', error);
+        logger.error('부서 변경 거절 에러:', { error });
         res.status(500).json({ message: '서버 처리 중 오류가 발생했습니다.' });
     }
 });

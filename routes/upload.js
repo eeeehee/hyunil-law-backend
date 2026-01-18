@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { authenticateToken } from '../middleware/auth.js';
+import { logger } from '../config/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,7 +15,7 @@ const router = express.Router();
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('📁 uploads 디렉토리 생성됨:', uploadsDir);
+    logger.info('📁 uploads 디렉토리 생성됨:', { uploadsDir });
 }
 
 // Multer 설정
@@ -67,7 +68,7 @@ router.post('/', authenticateToken, (req, res) => {
     upload.single('file')(req, res, (err) => {
         // Multer 에러 처리
         if (err) {
-            console.error('파일 업로드 에러:', err);
+            logger.error('파일 업로드 에러:', { error: err });
 
             if (err.message.includes('허용되지 않은 파일 형식')) {
                 return res.status(400).json({
@@ -127,7 +128,7 @@ router.post('/multiple', authenticateToken, upload.array('files', 5), async (req
         });
 
     } catch (error) {
-        console.error('다중 파일 업로드 에러:', error);
+        logger.error('다중 파일 업로드 에러:', { error });
         res.status(500).json({ message: '파일 업로드 중 오류가 발생했습니다.', error: error.message });
     }
 });

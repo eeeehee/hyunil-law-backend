@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, transaction } from '../config/database.js';
 import { authenticateToken, requireManager } from '../middleware/auth.js';
 import { safeJsonParse } from '../utils/safe-json.js';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 
@@ -66,7 +67,7 @@ router.get('/', authenticateToken, async (req, res) => {
             total: cases.length
         });
     } catch (error) {
-        console.error('소송 사건 목록 조회 오류:', error);
+        logger.error('소송 사건 목록 조회 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to fetch litigation cases',
             message: '소송 사건 목록을 가져오는 중 오류가 발생했습니다.'
@@ -116,7 +117,7 @@ router.get('/:docId', authenticateToken, async (req, res) => {
             updatedAt: litigationCase.updated_at
         });
     } catch (error) {
-        console.error('소송 사건 조회 오류:', error);
+        logger.error('소송 사건 조회 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to fetch litigation case',
             message: '소송 사건을 가져오는 중 오류가 발생했습니다.'
@@ -187,7 +188,7 @@ router.post('/', authenticateToken, requireManager, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('소송 사건 생성 오류:', error);
+        logger.error('소송 사건 생성 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to create litigation case',
             message: '소송 사건 생성 중 오류가 발생했습니다.'
@@ -263,7 +264,7 @@ router.put('/:docId', authenticateToken, requireManager, async (req, res) => {
             message: '소송 사건이 업데이트되었습니다.'
         });
     } catch (error) {
-        console.error('소송 사건 업데이트 오류:', error);
+        logger.error('소송 사건 업데이트 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to update litigation case',
             message: '소송 사건 업데이트 중 오류가 발생했습니다.'
@@ -294,7 +295,7 @@ router.delete('/:docId', authenticateToken, requireManager, async (req, res) => 
             message: '소송 사건이 삭제되었습니다.'
         });
     } catch (error) {
-        console.error('소송 사건 삭제 오류:', error);
+        logger.error('소송 사건 삭제 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to delete litigation case',
             message: '소송 사건 삭제 중 오류가 발생했습니다.'
@@ -330,7 +331,7 @@ router.get('/:docId/billing-history', authenticateToken, async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('청구 내역 조회 오류:', error);
+        logger.error('청구 내역 조회 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to fetch billing history',
             message: '청구 내역을 가져오는 중 오류가 발생했습니다.'
@@ -370,7 +371,7 @@ router.post('/:docId/billing-history', authenticateToken, requireManager, async 
             message: '청구 내역이 추가되었습니다.'
         });
     } catch (error) {
-        console.error('청구 내역 추가 오류:', error);
+        logger.error('청구 내역 추가 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to add billing history',
             message: '청구 내역 추가 중 오류가 발생했습니다.'

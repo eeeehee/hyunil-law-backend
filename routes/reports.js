@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken, requireManager } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -62,7 +63,7 @@ router.get('/', async (req, res) => {
         const reports = await query(sql, params);
         res.json({ reports, total: reports.length, limit: parseInt(limit), offset: parseInt(offset) });
     } catch (error) {
-        console.error('보고서 목록 조회 에러:', error);
+        logger.error('보고서 목록 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -91,7 +92,7 @@ router.get('/:docId', async (req, res) => {
 
         res.json(report);
     } catch (error) {
-        console.error('보고서 조회 에러:', error);
+        logger.error('보고서 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -127,7 +128,7 @@ router.post('/', requireManager, async (req, res) => {
         const [newReport] = await query('SELECT * FROM reports WHERE doc_id = ?', [docId]);
         res.status(201).json(newReport);
     } catch (error) {
-        console.error('보고서 생성 에러:', error);
+        logger.error('보고서 생성 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -175,7 +176,7 @@ router.put('/:docId', requireManager, async (req, res) => {
 
         res.json(updated);
     } catch (error) {
-        console.error('보고서 수정 에러:', error);
+        logger.error('보고서 수정 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -189,7 +190,7 @@ router.delete('/:docId', requireManager, async (req, res) => {
         await query('DELETE FROM reports WHERE doc_id = ? AND target_biz_num = ?', [req.params.docId, req.user.bizNum]);
         res.json({ message: '보고서가 삭제되었습니다.' });
     } catch (error) {
-        console.error('보고서 삭제 에러:', error);
+        logger.error('보고서 삭제 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });

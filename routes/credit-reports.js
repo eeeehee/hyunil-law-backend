@@ -3,6 +3,7 @@ import { query } from '../config/database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import { safeJsonParse } from '../utils/safe-json.js';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -55,7 +56,7 @@ router.get('/', async (req, res) => {
 
         res.json({ reports });
     } catch (error) {
-        console.error('신용조회 목록 조회 에러:', error);
+        logger.error('신용조회 목록 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -98,7 +99,7 @@ router.post('/', async (req, res) => {
             createdAt: report.created_at
         });
     } catch (error) {
-        console.error('신용조회 생성 에러:', error);
+        logger.error('신용조회 생성 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });

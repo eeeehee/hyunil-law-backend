@@ -3,6 +3,7 @@ import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database.js';
 import { authenticateToken, requireManager } from '../middleware/auth.js';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 
@@ -51,7 +52,7 @@ router.get('/debt', authenticateToken, async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('채무 사건 목록 조회 오류:', error);
+        logger.error('채무 사건 목록 조회 오류:', { error });
         res.status(500).json({ error: 'Failed to fetch debt cases' });
     }
 });
@@ -79,7 +80,7 @@ router.post('/debt', authenticateToken, requireManager, async (req, res) => {
 
         res.status(201).json({ message: '채무 사건이 생성되었습니다.', docId });
     } catch (error) {
-        console.error('채무 사건 생성 오류:', error);
+        logger.error('채무 사건 생성 오류:', { error });
         res.status(500).json({ error: 'Failed to create debt case' });
     }
 });
@@ -119,7 +120,7 @@ router.put('/debt/:docId', authenticateToken, requireManager, async (req, res) =
 
         res.json({ message: '채무 사건이 업데이트되었습니다.' });
     } catch (error) {
-        console.error('채무 사건 업데이트 오류:', error);
+        logger.error('채무 사건 업데이트 오류:', { error });
         res.status(500).json({ error: 'Failed to update debt case' });
     }
 });
@@ -169,7 +170,7 @@ router.get('/pasan', authenticateToken, async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('파산 사건 목록 조회 오류:', error);
+        logger.error('파산 사건 목록 조회 오류:', { error });
         res.status(500).json({ error: 'Failed to fetch pasan cases' });
     }
 });
@@ -197,7 +198,7 @@ router.post('/pasan', authenticateToken, requireManager, async (req, res) => {
 
         res.status(201).json({ message: '파산 사건이 생성되었습니다.', docId });
     } catch (error) {
-        console.error('파산 사건 생성 오류:', error);
+        logger.error('파산 사건 생성 오류:', { error });
         res.status(500).json({ error: 'Failed to create pasan case' });
     }
 });
@@ -238,7 +239,7 @@ router.put('/pasan/:docId', authenticateToken, requireManager, async (req, res) 
 
         res.json({ message: '파산 사건이 업데이트되었습니다.' });
     } catch (error) {
-        console.error('파산 사건 업데이트 오류:', error);
+        logger.error('파산 사건 업데이트 오류:', { error });
         res.status(500).json({ error: 'Failed to update pasan case' });
     }
 });
@@ -293,7 +294,7 @@ router.get('/consultation/counts', authenticateToken, async (req, res) => {
             totalCount: Number(row?.totalCount ?? 0)
         });
     } catch (error) {
-        console.error('상담 문의 카운트 조회 오류:', error);
+        logger.error('상담 문의 카운트 조회 오류:', { error });
         res.status(500).json({
             error: 'Failed to fetch consultation counts',
             message: '상담 문의 카운트를 가져오는 중 오류가 발생했습니다.'
@@ -350,7 +351,7 @@ router.get('/consultation', authenticateToken, async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('상담 문의 목록 조회 오류:', error);
+        logger.error('상담 문의 목록 조회 오류:', { error });
         res.status(500).json({ error: 'Failed to fetch consultation inquiries' });
     }
 });
@@ -374,7 +375,7 @@ router.post('/consultation', async (req, res) => {
 
         res.status(201).json({ message: '상담 문의가 등록되었습니다.', docId });
     } catch (error) {
-        console.error('상담 문의 생성 오류:', error);
+        logger.error('상담 문의 생성 오류:', { error });
         res.status(500).json({ error: 'Failed to create consultation inquiry' });
     }
 });
@@ -418,7 +419,7 @@ router.put('/consultation/:docId', authenticateToken, requireManager, async (req
 
         res.json({ message: '상담 문의가 업데이트되었습니다.' });
     } catch (error) {
-        console.error('상담 문의 업데이트 오류:', error);
+        logger.error('상담 문의 업데이트 오류:', { error });
         res.status(500).json({ error: 'Failed to update consultation inquiry' });
     }
 });

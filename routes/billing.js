@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 
@@ -36,7 +37,7 @@ router.post('/logs', authenticateToken, requireRole('master', 'admin'), async (r
 
         res.json({ message: '청구서/영수증이 발송되었습니다.', docId });
     } catch (error) {
-        console.error('청구서 발송 에러:', error);
+        logger.error('청구서 발송 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '청구서 발송에 실패했습니다.' });
     }
 });
@@ -74,7 +75,7 @@ router.get('/logs', authenticateToken, requireRole('master', 'admin'), async (re
         const logs = await query(sql, params);
         res.json({ logs });
     } catch (error) {
-        console.error('청구서 이력 조회 에러:', error);
+        logger.error('청구서 이력 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '청구서 이력을 불러올 수 없습니다.' });
     }
 });
@@ -99,7 +100,7 @@ router.get('/my-logs', authenticateToken, async (req, res) => {
         const qCompanyName = req.query?.companyName;
         const companyName = (role === 'master' || role === 'admin') ? (qCompanyName || tokenCompanyName) : tokenCompanyName;
 
-        console.log('📊 [결제내역 조회 요청]', {
+        logger.info('📊 [결제내역 조회 요청]', {
             companyName,
             role,
             tokenCompanyName
@@ -184,9 +185,9 @@ router.get('/my-logs', authenticateToken, async (req, res) => {
             return dateB - dateA;
         });
 
-        console.log(`✅ [결제내역 조회 결과] billing_logs: ${billingLogs.length}건, payments: ${payments.length}건, 통합: ${uniqueLogs.length}건`);
+        logger.info(`✅ [결제내역 조회 결과] billing_logs: ${billingLogs.length}건, payments: ${payments.length}건, 통합: ${uniqueLogs.length}건`);
         if (uniqueLogs.length > 0) {
-            console.log('📌 [최근 내역 샘플]', {
+            logger.info('📌 [최근 내역 샘플]', {
                 docId: uniqueLogs[0].docId,
                 companyName: uniqueLogs[0].companyName,
                 type: uniqueLogs[0].type,
@@ -198,8 +199,8 @@ router.get('/my-logs', authenticateToken, async (req, res) => {
 
         res.json({ logs: uniqueLogs });
     } catch (error) {
-        console.error('❌ 유저 청구/결제 내역 조회 에러:', error);
-        console.error('에러 스택:', error.stack);
+        logger.error('❌ 유저 청구/결제 내역 조회 에러:', { error });
+        logger.error('에러 스택:', { stack: error.stack });
         res.status(500).json({ error: 'DatabaseError', message: '결제/청구 내역을 불러올 수 없습니다.' });
     }
 });
@@ -220,7 +221,7 @@ router.get('/logs/:docId', authenticateToken, async (req, res) => {
 
         res.json({ log: results[0] });
     } catch (error) {
-        console.error('청구서 조회 에러:', error);
+        logger.error('청구서 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '청구서를 불러올 수 없습니다.' });
     }
 });
@@ -238,7 +239,7 @@ router.put('/logs/:docId/link-payment', authenticateToken, requireRole('master',
 
         res.json({ message: '매출 장부에 연동되었습니다.' });
     } catch (error) {
-        console.error('매출 연동 에러:', error);
+        logger.error('매출 연동 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '매출 연동에 실패했습니다.' });
     }
 });
@@ -294,7 +295,7 @@ router.post('/send-and-register', authenticateToken, requireRole('master', 'admi
             paymentDocId: paymentDocId || null
         });
     } catch (error) {
-        console.error('청구서 발송 및 등록 에러:', error);
+        logger.error('청구서 발송 및 등록 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '청구서 발송에 실패했습니다.' });
     }
 });
@@ -337,7 +338,7 @@ router.get('/stats', authenticateToken, requireRole('master', 'admin'), async (r
             pendingCount: stats.pendingCount || 0
         });
     } catch (error) {
-        console.error('청구서 통계 에러:', error);
+        logger.error('청구서 통계 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '통계를 불러올 수 없습니다.' });
     }
 });

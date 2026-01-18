@@ -1,6 +1,7 @@
 // backend/middleware/auth.js
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { logger } from '../config/logger.js';
 
 dotenv.config();
 
@@ -42,7 +43,7 @@ export function authenticateToken(req, res, next) {
             });
         }
 
-        console.log('✅ [JWT 검증] 토큰에서 파싱된 사용자:', {
+        logger.debug('✅ [JWT 검증] 토큰에서 파싱된 사용자:', {
             uid: user.uid,
             email: user.email,
             role: user.role,

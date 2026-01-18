@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ router.post('/requests', authenticateToken, async (req, res) => {
 
         res.json({ message: 'Biz Soda 요청이 등록되었습니다.', docId });
     } catch (error) {
-        console.error('Biz Soda 요청 생성 에러:', error);
+        logger.error('Biz Soda 요청 생성 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: 'Biz Soda 요청 등록에 실패했습니다.' });
     }
 });
@@ -61,7 +62,7 @@ router.get('/requests', authenticateToken, requireRole('master', 'admin', 'lawye
         const requests = await query(sql, params);
         res.json({ requests });
     } catch (error) {
-        console.error('Biz Soda 요청 조회 에러:', error);
+        logger.error('Biz Soda 요청 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: 'Biz Soda 요청을 불러올 수 없습니다.' });
     }
 });
@@ -82,7 +83,7 @@ router.get('/requests/:docId', authenticateToken, async (req, res) => {
 
         res.json({ request: results[0] });
     } catch (error) {
-        console.error('Biz Soda 요청 상세 조회 에러:', error);
+        logger.error('Biz Soda 요청 상세 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '요청을 불러올 수 없습니다.' });
     }
 });
@@ -105,7 +106,7 @@ router.put('/requests/:docId/result', authenticateToken, requireRole('master', '
 
         res.json({ message: '결과가 등록되었습니다.' });
     } catch (error) {
-        console.error('Biz Soda 결과 등록 에러:', error);
+        logger.error('Biz Soda 결과 등록 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '결과 등록에 실패했습니다.' });
     }
 });
@@ -134,7 +135,7 @@ router.post('/legal-requests', authenticateToken, async (req, res) => {
 
         res.json({ message: 'Legal Asset 요청이 등록되었습니다.', docId });
     } catch (error) {
-        console.error('Legal Asset 요청 생성 에러:', error);
+        logger.error('Legal Asset 요청 생성 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: 'Legal Asset 요청 등록에 실패했습니다.' });
     }
 });
@@ -157,7 +158,7 @@ router.get('/legal-requests', authenticateToken, requireRole('master', 'admin', 
         const requests = await query(sql, params);
         res.json({ requests });
     } catch (error) {
-        console.error('Legal Asset 요청 조회 에러:', error);
+        logger.error('Legal Asset 요청 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: 'Legal Asset 요청을 불러올 수 없습니다.' });
     }
 });
@@ -182,7 +183,7 @@ router.put('/legal-requests/:docId/approve', authenticateToken, requireRole('mas
 
         res.json({ message: '승인 및 결과가 등록되었습니다.' });
     } catch (error) {
-        console.error('Legal Asset 승인 에러:', error);
+        logger.error('Legal Asset 승인 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '승인에 실패했습니다.' });
     }
 });
@@ -204,7 +205,7 @@ router.put('/legal-requests/:docId/reject', authenticateToken, requireRole('mast
 
         res.json({ message: '요청이 반려되었습니다.' });
     } catch (error) {
-        console.error('Legal Asset 반려 에러:', error);
+        logger.error('Legal Asset 반려 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '반려에 실패했습니다.' });
     }
 });
@@ -234,7 +235,7 @@ router.get('/stats', authenticateToken, requireRole('master', 'admin', 'lawyer')
             legal: legalCount[0].count
         });
     } catch (error) {
-        console.error('통계 조회 에러:', error);
+        logger.error('통계 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '통계를 불러올 수 없습니다.' });
     }
 });

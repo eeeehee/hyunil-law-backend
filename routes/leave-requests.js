@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken, requireManager } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -40,7 +41,7 @@ router.get('/', async (req, res) => {
         const leaves = await query(sql, params);
         res.json({ leaves });
     } catch (error) {
-        console.error('휴가 목록 조회 에러:', error);
+        logger.error('휴가 목록 조회 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -68,7 +69,7 @@ router.post('/', async (req, res) => {
         const [leave] = await query('SELECT * FROM leave_requests WHERE doc_id = ? AND biz_num = ?', [docId, req.user.bizNum]);
         res.status(201).json(leave);
     } catch (error) {
-        console.error('휴가 신청 에러:', error);
+        logger.error('휴가 신청 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -97,7 +98,7 @@ router.put('/:docId', requireManager, async (req, res) => {
 
         res.json(leave);
     } catch (error) {
-        console.error('휴가 업데이트 에러:', error);
+        logger.error('휴가 업데이트 에러:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
 });

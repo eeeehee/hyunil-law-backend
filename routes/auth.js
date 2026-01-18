@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database.js';
 import { generateToken } from '../middleware/auth.js';
 import { validateBizNumWithAPI } from '../utils/bizNumAPI.js'; // 외부 API 헬퍼 임포트
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 
@@ -125,13 +126,13 @@ router.post('/signup', async (req, res) => {
     // ✅ 외부 API를 통한 사업자등록번호 유효성 검사
     const isBizNumValid = await validateBizNumWithAPI(bizNum, openDate, representativeName);
     if (!isBizNumValid) {
-        console.warn(`❌ [회원가입] 유효하지 않은 사업자등록번호: ${bizNum}`);
+        logger.warn(`❌ [회원가입] 유효하지 않은 사업자등록번호: ${bizNum}`);
         return res.status(400).json({
             error: 'InvalidBizNum',
             message: '유효하지 않거나 폐업된 사업자등록번호입니다. 정확한 정보를 입력해주세요.'
         });
     }
-    console.log(`✅ [회원가입] 사업자등록번호 외부 API 검증 완료: ${bizNum}`);
+    logger.info(`✅ [회원가입] 사업자등록번호 외부 API 검증 완료: ${bizNum}`);
 
     // 사업자번호 중복 확인
     const existingBizNum = await query(
@@ -200,7 +201,7 @@ router.post('/signup', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('회원가입 오류:', error);
+    logger.error('회원가입 오류:', { error });
     res.status(500).json({
       error: 'Signup failed',
       message: '회원가입 중 오류가 발생했습니다.'
@@ -271,7 +272,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    console.log('🔐 [로그인] 사용자 정보:', {
+    logger.info('🔐 [로그인] 사용자 정보:', {
       uid: user.uid,
       email: user.email,
       role: user.role,
@@ -309,7 +310,7 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('로그인 오류:', error);
+    logger.error('로그인 오류:', { error });
     const isDev =
       (process.env.NODE_ENV || 'development') === 'development';
     res.status(500).json({
@@ -357,7 +358,7 @@ router.post('/reset-password', async (req, res) => {
       message: '비밀번호가 성공적으로 변경되었습니다.'
     });
   } catch (error) {
-    console.error('비밀번호 재설정 오류:', error);
+    logger.error('비밀번호 재설정 오류:', { error });
     res.status(500).json({
       error: 'Password reset failed',
       message: '비밀번호 재설정 중 오류가 발생했습니다.'

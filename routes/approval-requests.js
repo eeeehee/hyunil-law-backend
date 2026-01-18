@@ -6,6 +6,7 @@ import { query } from '../config/database.js';
 import { authenticateToken, requireAdmin, requireAdminOrCEO } from '../middleware/auth.js';
 import { createPost } from '../utils/post_service.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 
@@ -18,9 +19,9 @@ const router = express.Router();
  */
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        console.log('🔍 승인 요청 목록 조회 시작');
-        console.log('📥 Query params:', req.query);
-        console.log('👤 User:', { uid: req.user?.uid, role: req.user?.role, bizNum: req.user?.bizNum });
+        logger.info('🔍 승인 요청 목록 조회 시작');
+        logger.info('📥 Query params:', { query: req.query });
+        logger.info('👤 User:', { uid: req.user?.uid, role: req.user?.role, bizNum: req.user?.bizNum });
 
         const { status, bizNum } = req.query;
         const user = req.user;
@@ -65,12 +66,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
         sql += ' ORDER BY ar.createdAt DESC';
 
-        console.log('📝 실행할 SQL:', sql);
-        console.log('📌 SQL params:', params);
+        logger.info('📝 실행할 SQL:', { sql });
+        logger.info('📌 SQL params:', { params });
 
         const requests = await query(sql, params);
 
-        console.log('✅ 조회된 요청 수:', requests.length);
+        logger.info('✅ 조회된 요청 수:', { count: requests.length });
 
         // requestData JSON 파싱
         const parsedRequests = requests.map(req => ({
@@ -86,12 +87,8 @@ router.get('/', authenticateToken, async (req, res) => {
             count: parsedRequests.length
         });
     } catch (error) {
-        console.error('❌ 승인 요청 목록 조회 에러:', error);
-        console.error('에러 코드:', error.code);
-        console.error('에러 번호:', error.errno);
-        console.error('SQL State:', error.sqlState);
-        console.error('SQL 메시지:', error.sqlMessage);
-        console.error('SQL:', error.sql);
+        logger.error('❌ 승인 요청 목록 조회 에러:', { error });
+        logger.error('DB 에러 상세:', { code: error.code, errno: error.errno, sqlState: error.sqlState, sqlMessage: error.sqlMessage, sql: error.sql });
         res.status(500).json({
             error: 'Internal server error',
             message: '승인 요청 목록을 불러오는 중 오류가 발생했습니다.',
@@ -139,7 +136,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
             request
         });
     } catch (error) {
-        console.error('승인 요청 조회 에러:', error);
+        logger.error('승인 요청 조회 에러:', { error });
         res.status(500).json({
             error: 'Internal server error',
             message: '승인 요청을 불러오는 중 오류가 발생했습니다.'
@@ -156,23 +153,23 @@ router.get('/:id', authenticateToken, async (req, res) => {
  */
 router.post('/', authenticateToken, async (req, res) => {
     try {
-        console.log('🔔 승인 요청 생성 시작');
-        console.log('📥 Request body:', req.body);
-        console.log('👤 User info:', { uid: req.user?.uid, bizNum: req.user?.bizNum, role: req.user?.role });
+        logger.info('🔔 승인 요청 생성 시작');
+        logger.info('📥 Request body:', { body: req.body });
+        logger.info('👤 User info:', { uid: req.user?.uid, bizNum: req.user?.bizNum, role: req.user?.role });
 
         const { requestType, requestData } = req.body;
         const user = req.user;
 
         if (!requestType || !requestData) {
-            console.log('❌ 필수 필드 누락:', { requestType, requestData });
+            logger.warn('❌ 필수 필드 누락:', { requestType, requestData });
             return res.status(400).json({
                 error: 'Bad request',
                 message: '요청 유형과 상세 정보는 필수입니다.'
             });
         }
 
-        console.log('✅ 필드 검증 통과');
-        console.log('💾 DB에 저장 시도:', {
+        logger.info('✅ 필드 검증 통과');
+        logger.info('💾 DB에 저장 시도:', {
             uid: user.uid,
             bizNum: user.bizNum,
             requestType,
@@ -190,7 +187,7 @@ router.post('/', authenticateToken, async (req, res) => {
             JSON.stringify(requestData)
         ]);
 
-        console.log('✨ 승인 요청 생성 완료:', result.insertId);
+        logger.info('✨ 승인 요청 생성 완료:', { insertId: result.insertId });
 
         res.status(201).json({
             success: true,
@@ -198,10 +195,8 @@ router.post('/', authenticateToken, async (req, res) => {
             requestId: Number(result.insertId) // BigInt를 Number로 변환
         });
     } catch (error) {
-        console.error('❌ 승인 요청 생성 에러:', error);
-        console.error('에러 스택:', error.stack);
-        console.error('에러 코드:', error.code);
-        console.error('에러 메시지:', error.message);
+        logger.error('❌ 승인 요청 생성 에러:', { error });
+        logger.error('에러 상세:', { stack: error.stack, code: error.code, message: error.message });
         res.status(500).json({
             error: 'Internal server error',
             message: '승인 요청 생성 중 오류가 발생했습니다.',
@@ -307,7 +302,7 @@ router.put('/:id/approve', authenticateToken, requireAdminOrCEO, async (req, res
             message: '승인이 완료되었습니다.'
         });
     } catch (error) {
-        console.error('승인 처리 에러:', error);
+        logger.error('승인 처리 에러:', { error });
         res.status(500).json({
             error: 'Internal server error',
             message: '승인 처리 중 오류가 발생했습니다.'
@@ -363,7 +358,7 @@ router.put('/:id/reject', authenticateToken, requireAdminOrCEO, async (req, res)
             message: '요청이 거절되었습니다.'
         });
     } catch (error) {
-        console.error('거절 처리 에러:', error);
+        logger.error('거절 처리 에러:', { error });
         res.status(500).json({
             error: 'Internal server error',
             message: '거절 처리 중 오류가 발생했습니다.'
@@ -405,7 +400,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             message: '승인 요청이 삭제되었습니다.'
         });
     } catch (error) {
-        console.error('승인 요청 삭제 에러:', error);
+        logger.error('승인 요청 삭제 에러:', { error });
         res.status(500).json({
             error: 'Internal server error',
             message: '승인 요청 삭제 중 오류가 발생했습니다.'
@@ -483,7 +478,7 @@ router.put('/bulk-approve', authenticateToken, requireAdminOrCEO, async (req, re
         } catch (error) {
             failCount++;
             errors.push(`ID ${id}: ${error.message}`);
-            console.error(`일괄 승인 중 개별 항목 처리 실패 (ID: ${id}):`, error);
+            logger.error(`일괄 승인 중 개별 항목 처리 실패 (ID: ${id}):`, { error });
         }
     }
 

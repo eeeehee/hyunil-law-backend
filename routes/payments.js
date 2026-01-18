@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -41,7 +42,7 @@ router.get('/', async (req, res) => {
         res.json({ payments });
 
     } catch (error) {
-        console.error('결제 내역 조회 에러:', error);
+        logger.error('결제 내역 조회 에러:', { error });
         res.status(500).json({
             message: '서버 오류가 발생했습니다.',
             error: error.message,
@@ -65,7 +66,7 @@ router.post('/', async (req, res) => {
         res.status(201).json(payment);
 
     } catch (error) {
-        console.error('결제 생성 에러:', error);
+        logger.error('결제 생성 에러:', { error });
         res.status(500).json({
             message: '서버 오류가 발생했습니다.',
             error: error.message

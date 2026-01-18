@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from '../config/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -74,7 +75,7 @@ router.get('/companies', authenticateToken, requireRole('master', 'admin', 'gene
 
         res.json({ companies });
     } catch (error) {
-        console.error('회사 목록 조회 에러:', error);
+        logger.error('회사 목록 조회 에러:', { error });
         res.status(500).json({
             error: 'DatabaseError',
             message: '회사 목록을 불러올 수 없습니다.',
@@ -119,7 +120,7 @@ router.get('/companies/:bizNum/employees', authenticateToken, requireRole('maste
         // 3. Return both employees and the company's plan
         res.json({ employees, companyPlan });
     } catch (error) {
-        console.error('직원 목록 조회 에러:', error);
+        logger.error('직원 목록 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '직원 목록을 불러올 수 없습니다.' });
     }
 });
@@ -172,7 +173,7 @@ router.post('/employees/batch', authenticateToken, requireRole('master', 'admin'
 
         res.json({ employeesByBizNum, ownerPlans });
     } catch (error) {
-        console.error('일괄 직원 목록 조회 에러:', error);
+        logger.error('일괄 직원 목록 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '직원 목록을 불러올 수 없습니다.' });
     }
 });
@@ -198,7 +199,7 @@ router.put('/companies/:uid/plan', authenticateToken, requireRole('master', 'adm
 
         res.json({ message: '플랜이 변경되었습니다.', plan });
     } catch (error) {
-        console.error('플랜 변경 에러:', error);
+        logger.error('플랜 변경 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '플랜 변경에 실패했습니다.' });
     }
 });
@@ -233,7 +234,7 @@ router.put('/companies/:uid/status', authenticateToken, requireRole('master', 'a
 
         res.json({ message: '상태가 변경되었습니다.' });
     } catch (error) {
-        console.error('상태 변경 에러:', error);
+        logger.error('상태 변경 에러:', { error });
         res.status(500).json({
             error: 'DatabaseError',
             message: '상태 변경에 실패했습니다.',
@@ -287,7 +288,7 @@ router.put('/companies/:uid', authenticateToken, requireRole('master', 'admin'),
 
         res.json({ message: '회사 정보가 수정되었습니다.' });
     } catch (error) {
-        console.error('회사 정보 수정 에러:', error);
+        logger.error('회사 정보 수정 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '회사 정보 수정에 실패했습니다.' });
     }
 });
@@ -314,7 +315,7 @@ router.post('/companies/:uid/increment-usage', authenticateToken, requireRole('m
 
         res.json({ message: '사용량이 증가되었습니다.' });
     } catch (error) {
-        console.error('사용량 증가 에러:', error);
+        logger.error('사용량 증가 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '사용량 증가에 실패했습니다.' });
     }
 });
@@ -334,7 +335,7 @@ router.put('/companies/:uid/limits', authenticateToken, requireRole('master', 'a
 
         res.json({ message: '한도가 수정되었습니다.' });
     } catch (error) {
-        console.error('한도 수정 에러:', error);
+        logger.error('한도 수정 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '한도 수정에 실패했습니다.' });
     }
 });
@@ -450,7 +451,7 @@ router.post('/employees', authenticateToken, requireRole('master', 'admin', 'gen
             }
         });
     } catch (error) {
-        console.error('직원 생성 에러:', error);
+        logger.error('직원 생성 에러:', { error });
         res.status(500).json({
             error: 'EmployeeCreateFailed',
             message: '직원 생성 중 오류가 발생했습니다.'
@@ -464,7 +465,7 @@ router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', '
         const { uid } = req.params;
         const { suspend } = req.body; // true: 중지, false: 복구
 
-        console.log('[권한중지 요청]', { uid, suspend, isActive: suspend ? 0 : 1 });
+        logger.info('[권한중지 요청]', { uid, suspend, isActive: suspend ? 0 : 1 });
 
         const newStatus = suspend ? 'Suspended' : 'Active';
 
@@ -473,7 +474,7 @@ router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', '
             [newStatus, uid]
         );
 
-        console.log('[권한중지 쿼리 결과]', result);
+        logger.info('[권한중지 쿼리 결과]', { result });
 
         const action = suspend ? '권한 중지' : '권한 복구';
 
@@ -481,13 +482,13 @@ router.put('/employees/:uid/suspend', authenticateToken, requireRole('master', '
         try {
             await addAdminLog(req.user.uid, req.user.managerName || req.user.manager_name || 'admin', 'user', uid, 'EMPLOYEE_SUSPEND', action);
         } catch (logError) {
-            console.error('관리자 로그 추가 실패 (무시):', logError);
+            logger.error('관리자 로그 추가 실패 (무시):', { error: logError });
         }
 
         res.json({ message: `직원 ${action}이 완료되었습니다.` });
     } catch (error) {
-        console.error('직원 상태 변경 에러:', error);
-        console.error('에러 상세:', error.message, error.code, error.sqlMessage);
+        logger.error('직원 상태 변경 에러:', { error });
+        logger.error('에러 상세:', { message: error.message, code: error.code, sqlMessage: error.sqlMessage });
         res.status(500).json({
             error: 'DatabaseError',
             message: '직원 상태 변경에 실패했습니다.',
@@ -537,7 +538,7 @@ router.put('/employees/:uid', authenticateToken, requireRole('master', 'admin', 
 
         res.json({ message: '직원 정보가 수정되었습니다.' });
     } catch (error) {
-        console.error('직원 정보 수정 에러:', error);
+        logger.error('직원 정보 수정 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '직원 정보 수정에 실패했습니다.' });
     }
 });
@@ -563,7 +564,7 @@ router.post('/companies/:uid/logs', authenticateToken, requireRole('master', 'ad
 
         res.json({ message: '로그가 추가되었습니다.' });
     } catch (error) {
-        console.error('로그 추가 에러:', error);
+        logger.error('로그 추가 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '로그 추가에 실패했습니다.' });
     }
 });
@@ -592,7 +593,7 @@ router.get('/logs', authenticateToken, requireRole('master', 'admin'), async (re
         const logs = await query(sql, params);
         res.json({ logs });
     } catch (error) {
-        console.error('로그 조회 에러:', error);
+        logger.error('로그 조회 에러:', { error });
         res.status(500).json({ error: 'DatabaseError', message: '로그를 불러올 수 없습니다.' });
     }
 });
@@ -609,7 +610,7 @@ async function addAdminLog(adminUid, adminName, targetType, targetId, action, de
             [adminUid, adminName, targetType, targetId, action, description]
         );
     } catch (error) {
-        console.error('관리자 로그 추가 에러:', error);
+        logger.error('관리자 로그 추가 에러:', { error });
     }
 }
 
@@ -630,7 +631,7 @@ router.post('/update-content-file', authenticateToken, requireRole('master', 'ad
 
         // 보안: 계산된 경로가 허용된 디렉토리 내에 있는지 확인 (디렉토리 순회 공격 방지)
         if (!targetPath.startsWith(allowedDir)) {
-            console.warn(`보안 경고: 허용되지 않은 경로 접근 시도 - ${targetPath}`);
+            logger.warn(`보안 경고: 허용되지 않은 경로 접근 시도 - ${targetPath}`);
             return res.status(403).json({ message: '허용되지 않은 위치의 파일에 접근할 수 없습니다.' });
         }
 
@@ -650,7 +651,7 @@ router.post('/update-content-file', authenticateToken, requireRole('master', 'ad
         res.status(200).json({ message: '파일이 성공적으로 업데이트되었습니다.' });
 
     } catch (error) {
-        console.error('파일 업데이트 중 오류 발생:', error);
+        logger.error('파일 업데이트 중 오류 발생:', { error });
         if (error.code === 'ENOENT') {
              res.status(404).json({ message: '파일을 찾을 수 없습니다.' });
         } else if (error.code === 'EACCES') {

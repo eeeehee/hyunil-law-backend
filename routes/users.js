@@ -2,6 +2,7 @@
 import express from 'express';
 import { query } from '../config/database.js';
 import { authenticateToken, requireAdmin, requireAdminOrCEO } from '../middleware/auth.js';
+import { logger } from '../config/logger.js';
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.get('/departments', authenticateToken, async (req, res) => {
         }
 
     } catch (error) {
-        console.error('부서 목록 조회 오류:', error);
+        logger.error('부서 목록 조회 오류:', { error });
         res.status(500).json({ message: '서버 오류가 발생했습니다.' });
     }
 });
@@ -90,7 +91,7 @@ router.get('/me', authenticateToken, async (req, res) => {
                     customPhoneLimit: owner.custom_phone_limit,
                     useApproval: owner.useApproval
                 };
-                console.log(`👥 직원(${user.uid})에게 owner 플랜/설정 정보 제공: plan=${owner.plan}, useApproval=${owner.useApproval}`);
+                logger.info(`👥 직원(${user.uid})에게 owner 플랜/설정 정보 제공: plan=${owner.plan}, useApproval=${owner.useApproval}`);
             }
         }
 
@@ -116,7 +117,7 @@ router.get('/me', authenticateToken, async (req, res) => {
             agreedAt: user.agreed_at
         });
     } catch (error) {
-        console.error('사용자 정보 조회 오류:', error);
+        logger.error('사용자 정보 조회 오류:', { error });
         res.status(500).json({
             error: 'Failed to fetch user',
             message: '사용자 정보를 가져오는 중 오류가 발생했습니다.',
@@ -136,7 +137,7 @@ router.get('/', authenticateToken, async (req, res) => {
         const isAdmin = ['master', 'admin', 'general_manager', 'lawyer'].includes(req.user?.role);
         const isCEO = ['owner', 'CEO'].includes(req.user?.role);
 
-        console.log('🔍 [GET /users] 요청자 정보:', {
+        logger.info('🔍 [GET /users] 요청자 정보:', {
             uid: req.user?.uid,
             role: req.user?.role,
             isAdmin,
@@ -144,7 +145,7 @@ router.get('/', authenticateToken, async (req, res) => {
         });
 
         if (!isAdmin && !isCEO) {
-            console.log('❌ [GET /users] 권한 없음:', req.user?.role);
+            logger.info('❌ [GET /users] 권한 없음:', { role: req.user?.role });
             return res.status(403).json({
                 error: 'Forbidden',
                 message: '권한이 없습니다.'
@@ -207,7 +208,7 @@ router.get('/', authenticateToken, async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('사용자 목록 조회 오류:', error);
+        logger.error('사용자 목록 조회 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to fetch users',
             message: '사용자 목록을 가져오는 중 오류가 발생했습니다.'
@@ -246,7 +247,7 @@ router.get('/:uid', authenticateToken, requireAdmin, async (req, res) => {
             agreedAt: user.agreed_at
         });
     } catch (error) {
-        console.error('사용자 정보 조회 오류:', error);
+        logger.error('사용자 정보 조회 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to fetch user',
             message: '사용자 정보를 가져오는 중 오류가 발생했습니다.'
@@ -257,9 +258,9 @@ router.get('/:uid', authenticateToken, requireAdmin, async (req, res) => {
 // 사용자 정보 업데이트
 router.put('/me', authenticateToken, async (req, res) => {
     try {
-        console.log('📝 [PUT /users/me] 요청 받음');
-        console.log('요청자:', req.user.uid, req.user.email);
-        console.log('요청 body:', JSON.stringify(req.body, null, 2));
+        logger.info('📝 [PUT /users/me] 요청 받음');
+        logger.info('요청자:', { uid: req.user.uid, email: req.user.email });
+        logger.info('요청 body:', { body: req.body });
 
         const {
             companyName,
@@ -301,7 +302,7 @@ router.put('/me', authenticateToken, async (req, res) => {
         }
         if (departments !== undefined) {
             const deptValue = departments === null ? null : JSON.stringify(departments);
-            console.log('departments 필드 업데이트:', departments, '→', deptValue);
+            logger.info('departments 필드 업데이트:', { from: departments, to: deptValue });
             updates.push('departments = ?');
             params.push(deptValue);
         }
@@ -312,7 +313,7 @@ router.put('/me', authenticateToken, async (req, res) => {
         }
 
         if (updates.length === 0) {
-            console.log('❌ 업데이트할 필드 없음');
+            logger.info('❌ 업데이트할 필드 없음');
             return res.status(400).json({
                 error: 'No fields to update',
                 message: '업데이트할 필드가 없습니다.'
@@ -323,11 +324,11 @@ router.put('/me', authenticateToken, async (req, res) => {
         params.push(req.user.uid);
 
         const sql = `UPDATE users SET ${updates.join(', ')} WHERE uid = ?`;
-        console.log('실행할 SQL:', sql);
-        console.log('파라미터:', params);
+        logger.info('실행할 SQL:', { sql });
+        logger.info('파라미터:', { params });
 
         await query(sql, params);
-        console.log('✅ 업데이트 성공');
+        logger.info('✅ 업데이트 성공');
 
         const [updatedUser] = await query('SELECT * FROM users WHERE uid = ?', [req.user.uid]);
 
@@ -349,7 +350,7 @@ router.put('/me', authenticateToken, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('사용자 정보 업데이트 오류:', error);
+        logger.error('사용자 정보 업데이트 오류:', { error });
         res.status(500).json({ 
             error: 'Failed to update user',
             message: '사용자 정보 업데이트 중 오류가 발생했습니다.'
@@ -441,7 +442,7 @@ router.put('/:uid', authenticateToken, requireAdminOrCEO, async (req, res) => {
             message: '사용자 정보가 업데이트되었습니다.'
         });
     } catch (error) {
-        console.error('사용자 정보 업데이트 오류:', error);
+        logger.error('사용자 정보 업데이트 오류:', { error });
         res.status(500).json({
             error: 'Failed to update user',
             message: '사용자 정보 업데이트 중 오류가 발생했습니다.'
@@ -481,7 +482,7 @@ router.delete('/:uid', authenticateToken, requireAdminOrCEO, async (req, res) =>
             message: '사용자가 삭제되었습니다.'
         });
     } catch (error) {
-        console.error('사용자 삭제 오류:', error);
+        logger.error('사용자 삭제 오류:', { error });
         res.status(500).json({
             error: 'Failed to delete user',
             message: '사용자 삭제 중 오류가 발생했습니다.'
