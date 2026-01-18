@@ -4,6 +4,8 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import morgan from 'morgan';
+import rtracer from 'cls-rtracer';
+import { nanoid } from 'nanoid';
 import { logger, stream } from './config/logger.js';
 import { testConnection } from './config/database.js';
 
@@ -34,6 +36,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+// 1. Request ID Middleware (Must be first to track entire request lifecycle)
+app.use(rtracer.expressMiddleware({
+    useHeader: true, // 클라이언트가 x-request-id 헤더를 보내면 그것을 사용
+    requestIdFactory: (req) => nanoid(10) // 없으면 10자리 랜덤 ID 생성
+}));
+
 app.use(cors({
     origin: process.env.CORS_ORIGIN || '*',
     credentials: true

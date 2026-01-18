@@ -2,6 +2,7 @@ import winston from 'winston';
 import 'winston-daily-rotate-file';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import rtracer from 'cls-rtracer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,9 +13,23 @@ const logDir = path.join(__dirname, '../logs');
 // 로그 레벨 정의
 const { combine, timestamp, printf, colorize, json } = winston.format;
 
+// Request ID를 info 객체에 추가하는 커스텀 포맷
+const appendRequestId = winston.format((info) => {
+    const rid = rtracer.id();
+    if (rid) {
+        info.requestId = rid;
+    }
+    return info;
+});
+
 // 로그 포맷 정의 (콘솔용)
-const consoleFormat = printf(({ level, message, timestamp, ...metadata }) => {
-    let msg = `${timestamp} [${level}]: ${message}`;
+const consoleFormat = printf(({ level, message, timestamp, requestId, ...metadata }) => {
+    let msg = `${timestamp} [${level}]`;
+    if (requestId) {
+        msg += ` [ReqId: ${requestId}]`;
+    }
+    msg += `: ${message}`;
+    
     if (Object.keys(metadata).length > 0) {
         msg += ` ${JSON.stringify(metadata)}`;
     }
@@ -25,6 +40,7 @@ const consoleFormat = printf(({ level, message, timestamp, ...metadata }) => {
 const logger = winston.createLogger({
     level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
     format: combine(
+        appendRequestId(), // 모든 로그에 Request ID 주입
         timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         json() // 파일에는 JSON 형태로 저장 (분석 용이)
     ),
@@ -55,6 +71,7 @@ if (process.env.NODE_ENV !== 'production') {
     logger.add(
         new winston.transports.Console({
             format: combine(
+                appendRequestId(), // 콘솔에도 적용
                 colorize({ all: true }), // 색상 적용
                 timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
                 consoleFormat
