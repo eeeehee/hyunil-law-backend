@@ -1,0 +1,25 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "/Users/hadong/Desktop/work/hyunil/hyunil-law-backend/logs/.26e281aa29bba6dffc4df0c0c6cf3e1fde009c9a-audit.json",
+    "files": [
+        {
+            "date": 1768716816861,
+            "name": "/Users/hadong/Desktop/work/hyunil/hyunil-law-backend/logs/2026-01-18-combined.log",
+            "hash": "5e2394fb031ddddf23bba161381c914dd3b495d3317676f13c1d22ed8417d827"
+        },
+        {
+            "date": 1768802535566,
+            "name": "/Users/hadong/Desktop/work/hyunil/hyunil-law-backend/logs/2026-01-19-combined.log",
+            "hash": "55504d270020009d28ca7aed97f19f5013b29fc920ce601605ab8c75b5d027d9"
+        },
+        {
+            "date": 1768864343149,
+            "name": "/Users/hadong/Desktop/work/hyunil/hyunil-law-backend/logs/2026-01-20-combined.log",
+            "hash": "422f1965ac45afd099e170afd2b1d88a8ee45d5c87e03164158ba1e2b83d9456"
+        }
+    ],
+    "hashType": "sha256"
+}
